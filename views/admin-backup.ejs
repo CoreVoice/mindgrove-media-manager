@@ -2,28 +2,31 @@
 <main class="container">
   <div class="page-head">
     <p class="eyebrow">Backup</p>
-    <h1>Link map export &amp; import</h1>
-    <p class="lead">A portable record of every page/section/variant and every short link's
-      current file — the thing worth never losing, since these URLs get embedded all over
-      once published. Excludes users, sessions, and storage credentials.</p>
+    <h1>Export &amp; import</h1>
+    <p class="lead">One file with everything worth never losing: every page/section/variant,
+      every short link's current file, redirect history for renamed slugs — <strong>and the
+      file bytes themselves</strong> for anything on local storage. Excludes users, sessions,
+      and storage credentials.</p>
   </div>
 
   <section class="card">
     <h2>Export</h2>
-    <p class="muted small">Downloads a JSON snapshot of the taxonomy + link/slug map (including
-      redirect history for renamed slugs). Small, text-diffable, safe to commit to git.</p>
-    <a class="btn primary" href="/api/admin/export" download>Export link map (.json)</a>
+    <p class="muted small">Downloads a single <code>.zip</code>: <code>manifest.json</code>
+      (taxonomy + link/slug map) plus a <code>files/</code> folder with every local-driver
+      file's actual bytes. Bunny/S3-backed files are listed in the manifest but not bundled —
+      their bytes already live on that storage, independent of this app.</p>
+    <a class="btn primary" href="/api/admin/export" download>Export files + link map (.zip)</a>
   </section>
 
   <section class="card">
     <h2>Import</h2>
-    <p class="muted small">Restores from an exported file. <strong>Never overwrites</strong> a
-      slug or taxonomy entry that already exists — only adds what's missing, so it's safe to
-      run against a live database. Note: this restores the <em>map</em>, not file bytes — for
-      local storage, the actual files must already be present (e.g. from <code>data/uploads/</code>
-      in git); for Bunny/S3, the bytes are wherever they were originally uploaded.</p>
+    <p class="muted small">Restores from an exported <code>.zip</code> (or a legacy map-only
+      <code>.json</code>). <strong>Never overwrites</strong> a slug, taxonomy entry, or file
+      already on disk — only adds what's missing, so it's safe to run against a live database.
+      Bunny/S3-backed links are restored as metadata only; their bytes are wherever they were
+      originally uploaded.</p>
     <div class="row wrap">
-      <input type="file" id="importFile" accept="application/json" />
+      <input type="file" id="importFile" accept=".zip,.json,application/zip,application/json" />
       <button class="btn primary" id="importBtn">Import</button>
     </div>
     <div id="importMsg" class="msg"></div>

@@ -67,6 +67,7 @@ stored. The `.env` `STORAGE_DRIVER` is just the initial default.
 | `SESSION_SECRET` | **set a long random value in production** |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | seed admin (first run only) |
 | `MAX_FILE_MB` | max upload size (default 100) |
+| `MAX_BACKUP_MB` | max export/import archive size (default 1024) |
 | `STORAGE_DRIVER` | `local` (dev) or `bunny` |
 | `BUNNY_STORAGE_ZONE` | Bunny storage zone name (`corevoice`) |
 | `BUNNY_STORAGE_ACCESS_KEY` | storage-zone password/access key |
@@ -149,20 +150,22 @@ short link is served by the **app** domain — the app must be running to resolv
 The thing that actually matters here is the **slug → file map**: once a `/f/:slug` link is
 pasted into a doc, a product page, a support macro, wherever — you can't easily chase down and
 edit every place it's used. So the priority isn't "back up the whole database," it's "never
-lose the map of what every URL points to." Three different assets, three different treatments:
+lose the map of what every URL points to, or the files behind it." Three different assets,
+three different treatments:
 
 | Asset | Contains | Recommendation |
 |---|---|---|
-| **Link map** (taxonomy + links + redirects) | Every page/section/variant, every slug, what file it maps to, and every renamed-away old slug | **Export regularly** (`/admin/backup`) and commit the JSON to git, e.g. under `backups/`. Small, plain-text, diffable, **no secrets** — safe to keep in history indefinitely. |
-| **Uploaded files** (`data/uploads/`) | The actual file bytes, when using the **local** storage driver | Already tracked in git (see `.gitignore`) as a lightweight backup. Only applies to `local` — once you're on Bunny/S3, the bytes live there instead and this becomes irrelevant. |
-| **Full sqlite db** (`data/app.sqlite`) | Users + password hashes, sessions, **encrypted storage credentials**, plus everything in the link map | **Don't commit this.** It's runtime state with secrets in it. Back it up via a volume snapshot (`docker volume` / disk snapshot) if you want full disaster recovery of accounts too — not via git. |
+| **Export .zip** (`/admin/backup`) | Every page/section/variant, every slug + what file it maps to, every renamed-away old slug, **and the file bytes** for anything on local storage | **Export regularly and commit the .zip to git**, e.g. under `backups/`. This is the one artifact that matters most — small (unless local uploads are large), self-contained, **no secrets**, restorable on any fresh clone with one Import click. |
+| **Uploaded files** (`data/uploads/`) | The raw file bytes, when using the **local** storage driver | Also tracked directly in git (see `.gitignore`) — redundant with what's inside the export .zip, but cheap insurance and lets you inspect/diff individual files without unzipping anything. |
+| **Full sqlite db** (`data/app.sqlite`) | Users + password hashes, sessions, **encrypted storage credentials**, plus everything already in the export | **Don't commit this.** It's runtime state with secrets in it. Back it up via a volume snapshot (`docker volume` / disk snapshot) if you want full disaster recovery of accounts too — not via git. |
 
 **Recovery on a fresh clone/host:** clone the repo (gets `data/uploads/` + whatever's under
 `backups/`) → boot the app (seeds a fresh admin from `.env`) → **Backup → Import** the latest
-export to restore taxonomy + every slug + redirect history. Import never overwrites an existing
-slug, so it's also safe to run against a live db to merge in a colleague's changes. Only thing
-it can't restore on its own: user accounts (recreate via `/admin/users`) and, for local-driver
-files, whatever wasn't yet committed to `data/uploads/` at export time.
+`.zip` to restore taxonomy, every slug, redirect history, **and the file bytes themselves** in
+one step. Import never overwrites an existing slug or file already on disk, so it's also safe
+to run against a live db to merge in a colleague's changes. The only thing it can't restore:
+user accounts (recreate via `/admin/users`) — and for Bunny/S3-backed links, the bytes are
+wherever they were originally uploaded, since the export only bundles local-driver files.
 
 ---
 
@@ -202,7 +205,7 @@ routes/
   api.js          taxonomy + files (upload/replace/slug/delete)
   admin.js        user management + storage settings
   dbadmin.js      phpMyAdmin-style table browser/editor (admin only)
-  backup.js       link-map export/import (admin only)
+  backup.js       zip export/import — link map + local file bytes (admin only)
   shorturl.js     GET /f/:slug redirect
 views/            EJS pages (login, dashboard, admin-users/-taxonomy/-settings/-database/-backup)
 public/           style.css + client JS (app.js, admin-*.js)

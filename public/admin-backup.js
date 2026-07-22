@@ -30,6 +30,7 @@ document.getElementById('importBtn').addEventListener('click', async () => {
           <tr><td>Variants</td><td>${s.variants.matched}</td><td>${s.variants.inserted}</td><td>—</td></tr>
           <tr><td>Links</td><td>—</td><td>${s.links.inserted}</td><td>${s.links.skipped} (slug already existed)</td></tr>
           <tr><td>Redirects</td><td>—</td><td>${s.redirects.inserted}</td><td>${s.redirects.skipped}</td></tr>
+          <tr><td>File bytes restored</td><td>—</td><td>${r.filesRestored ?? 0}</td><td>—</td></tr>
         </tbody>
       </table>`;
     summaryEl.classList.remove('hidden');
