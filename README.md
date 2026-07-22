@@ -141,10 +141,8 @@ One volume is enough here — app *code* lives in the image (rebuilt fresh each 
 (This isn't like a Postgres-backed app such as n8n, which needs a second volume because it
 runs a *separate database container* — this app's SQLite db is embedded in the same process.)
 
-`data/uploads/` is also committed to git (see `.gitignore`) as a lightweight backup of what's
-on local-disk storage. Worth knowing: git isn't a real backup system for growing binary
-files — history only grows, GitHub hard-blocks any file over 100MB, and there's no dedup. Fine
-for small internal use; for real volume, snapshot the Docker volume or rely on the CDN instead.
+`data/` (db + local uploads) is gitignored — app code and runtime data stay fully separate, so
+a `git pull`/redeploy never touches live data. Use **Backup → Export** for a portable copy.
 
 ### Plain Docker
 
@@ -171,22 +169,23 @@ short link is served by the **app** domain — the app must be running to resolv
 The thing that actually matters here is the **slug → file map**: once a `/f/:slug` link is
 pasted into a doc, a product page, a support macro, wherever — you can't easily chase down and
 edit every place it's used. So the priority isn't "back up the whole database," it's "never
-lose the map of what every URL points to, or the files behind it." Three different assets,
-three different treatments:
+lose the map of what every URL points to, or the files behind it." **All runtime data
+(`data/` — the sqlite db and local uploads) is gitignored**, on purpose: it keeps app-code
+deploys (git pull, image rebuilds) from ever touching live data. Two different assets, two
+different treatments:
 
 | Asset | Contains | Recommendation |
 |---|---|---|
-| **Export .zip** (`/admin/backup`) | Every page/section/variant, every slug + what file it maps to, every renamed-away old slug, **and the file bytes** for anything on local storage | **Export regularly and commit the .zip to git**, e.g. under `backups/`. This is the one artifact that matters most — small (unless local uploads are large), self-contained, **no secrets**, restorable on any fresh clone with one Import click. |
-| **Uploaded files** (`data/uploads/`) | The raw file bytes, when using the **local** storage driver | Also tracked directly in git (see `.gitignore`) — redundant with what's inside the export .zip, but cheap insurance and lets you inspect/diff individual files without unzipping anything. |
-| **Full sqlite db** (`data/app.sqlite`) | Users + password hashes, sessions, **encrypted storage credentials**, plus everything already in the export | **Don't commit this.** It's runtime state with secrets in it. Back it up via a volume snapshot (`docker volume` / disk snapshot) if you want full disaster recovery of accounts too — not via git. |
+| **Export .zip** (`/admin/backup`) | Every page/section/variant, every slug + what file it maps to, every renamed-away old slug, **and the file bytes** for anything on local storage | **Export regularly** and keep the .zip somewhere durable (a separate backups bucket/repo, not this codebase repo). Self-contained, **no secrets**, restorable on any fresh instance with one Import click. |
+| **Full sqlite db** (`data/app.sqlite`) | Users + password hashes, sessions, **encrypted storage credentials**, plus everything already in the export | Never goes in git. Back it up via a volume snapshot (`docker volume` / disk snapshot) if you want full disaster recovery of accounts too. |
 
-**Recovery on a fresh clone/host:** clone the repo (gets `data/uploads/` + whatever's under
-`backups/`) → boot the app (seeds a fresh admin from `.env`) → **Backup → Import** the latest
-`.zip` to restore taxonomy, every slug, redirect history, **and the file bytes themselves** in
-one step. Import never overwrites an existing slug or file already on disk, so it's also safe
-to run against a live db to merge in a colleague's changes. The only thing it can't restore:
-user accounts (recreate via `/admin/users`) — and for Bunny/S3-backed links, the bytes are
-wherever they were originally uploaded, since the export only bundles local-driver files.
+**Recovery on a fresh host:** deploy the app (seeds a fresh admin from `.env`) → **Backup →
+Import** the latest `.zip` to restore taxonomy, every slug, redirect history, **and the file
+bytes themselves** in one step. Import never overwrites an existing slug or file already on
+disk, so it's also safe to run against a live db to merge in a colleague's changes. The only
+thing it can't restore: user accounts (recreate via `/admin/users`) — and for Bunny/S3-backed
+links, the bytes are wherever they were originally uploaded, since the export only bundles
+local-driver files.
 
 ---
 
@@ -241,7 +240,7 @@ views/            EJS pages — login/forgot-password/reset-password, dashboard,
                   admin-users/-taxonomy/-settings/-mail/-audit/-database/-backup/-approvals
 public/           style.css + client JS (app.js, nav.js, admin-*.js)
 scripts/seed.js   optional sample taxonomy
-data/             SQLite db (gitignored) + uploads/ (tracked in git for backup)
+data/             SQLite db + uploads/ + sessions (gitignored — see Maintaining this app)
 docker-compose.yml / Dockerfile / .dockerignore   container build + run
 ```
 
