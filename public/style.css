@@ -115,6 +115,30 @@ h2 { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; }
 .navmenu a:hover { background: rgba(255,255,255,.06); color: #fff; }
 .navmenu a.active { color: var(--green); }
 
+/* ---------- notifications bell ---------- */
+.topbar-right { display: flex; align-items: center; gap: .7rem; }
+.notifwrap { position: relative; }
+.bellBtn {
+  position: relative; background: none; border: 1px solid #3a3c3f; color: #fff; border-radius: 8px;
+  font-size: 1rem; padding: .3rem .55rem; cursor: pointer; line-height: 1;
+}
+.bellBtn .badge { position: absolute; top: -.4rem; right: -.4rem; background: #c0392b; }
+.notifmenu {
+  position: absolute; top: calc(100% + .6rem); right: 0; width: 320px; max-height: 70vh; overflow-y: auto;
+  background: var(--near-black-2); border: 1px solid #2a2c2f; border-radius: 10px;
+  box-shadow: 0 20px 50px -16px rgba(0,0,0,.7); z-index: 40;
+}
+.notifhead { padding: .7rem .9rem; font-weight: 700; font-size: .85rem; color: #fff; border-bottom: 1px solid #2a2c2f; }
+.notifitem { display: block; padding: .65rem .9rem; border-bottom: 1px solid #232527; color: #c9cbcd; }
+.notifitem:last-child { border-bottom: none; }
+.notifitem:hover { background: rgba(255,255,255,.05); }
+.notifitem.unread { background: rgba(77,164,82,.07); }
+.notifitem.unread .notifmsg { color: #fff; font-weight: 700; }
+.notifmsg { font-size: .85rem; margin-bottom: .15rem; }
+
+/* ---------- highlighted card (arrived via a notification click) ---------- */
+.filecard.highlight { outline: 2px solid var(--green); box-shadow: 0 0 0 5px rgba(77,164,82,.22); transition: box-shadow .3s, outline-color .3s; }
+
 /* ---------- mobile hamburger ---------- */
 .navToggle {
   display: none; background: none; border: 1px solid #3a3c3f; color: #fff; border-radius: 8px;
@@ -139,6 +163,7 @@ h2 { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; }
   .navdrop { width: 100%; }
   .navdrop summary { padding: .8rem 1.2rem; }
   .navmenu { position: static; box-shadow: none; border: none; background: rgba(255,255,255,.03); margin: 0 .8rem .4rem; }
+  .notifmenu { width: min(320px, calc(100vw - 2rem)); right: -.5rem; }
 }
 .linkbtn:hover { color: var(--green); }
 
@@ -350,12 +375,12 @@ code { background: var(--panel); padding: .1rem .4rem; border-radius: 5px; font-
 .cards.list .filecard {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-areas: "name meta" "tags tags" "sum sum" "link link" "editor editor" "tageditor tageditor" "actions actions";
+  grid-template-areas: "name meta" "sub sub" "tags tags" "sum sum" "link link" "editor editor" "tageditor tageditor" "actions actions";
   gap: .4rem .8rem; align-items: center; margin-bottom: .6rem;
 }
 .cards.list .filecard .name { grid-area: name; }
 .cards.list .filecard .meta:not(.updated) { grid-area: meta; justify-self: end; }
-.cards.list .filecard .updated { grid-area: name; align-self: end; font-size: .72rem; }
+.cards.list .filecard .updated { grid-area: sub; font-size: .72rem; }
 .cards.list .filecard .cardtags { grid-area: tags; }
 .cards.list .filecard .checksum { grid-area: sum; }
 .cards.list .filecard [data-role="display"] { grid-area: link; }
@@ -363,7 +388,7 @@ code { background: var(--panel); padding: .1rem .4rem; border-radius: 5px; font-
 .cards.list .filecard [data-role="tag-editor"] { grid-area: tageditor; }
 .cards.list .filecard .actions { grid-area: actions; }
 @media (max-width: 640px) {
-  .cards.list .filecard { grid-template-columns: 1fr; grid-template-areas: "name" "meta" "tags" "sum" "link" "editor" "tageditor" "actions"; }
+  .cards.list .filecard { grid-template-columns: 1fr; grid-template-areas: "name" "meta" "sub" "tags" "sum" "link" "editor" "tageditor" "actions"; }
   .cards.list .filecard .meta:not(.updated) { justify-self: start; }
 }
 

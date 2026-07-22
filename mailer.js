@@ -81,4 +81,4 @@ function baseUrl() {
   return (process.env.BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
 }
 
-module.exports = { send, sendTest, notifyAdminPending, notifyUserReviewed, passwordResetEmail };
+module.exports = { send, sendTest, notifyAdminPending, notifyUserReviewed, passwordResetEmail, describeChange };

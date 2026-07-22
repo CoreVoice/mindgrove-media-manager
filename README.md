@@ -50,6 +50,12 @@ setup is needed to try it.
 via the exact same logic as an admin's direct action) or Reject (discards it and any
 uploaded-but-unapproved bytes). The nav shows a badge with the pending count.
 
+**In-dashboard notifications** — every logged-in user gets a 🔔 bell in the top bar (badge =
+unread count, polled every 20s). When their change is approved or rejected, a notification
+lands there too — not just email. Clicking one jumps to `/` and **restores that exact
+page → section → variant selection**, scrolling to and briefly highlighting the file so they
+can immediately copy its link, download it, etc.
+
 **Email notifications** (`/admin/mail`, admin only) — configure SMTP (e.g. AWS SES SMTP
 credentials) once, and: an admin gets emailed when something needs review; a user gets emailed
 when their change goes live or is rejected, if they have an **email** set (`/admin/users`).
@@ -228,17 +234,19 @@ mailConfig.js     resolves active mail (SMTP) config (DB settings override .env)
 mailer.js         nodemailer transport + notification templates; never throws
 passwordReset.js  one-hour single-use reset tokens, emailed via mailer
 audit.js          write/read the audit log
+notifications.js  in-dashboard notifications: create/list/mark-read, per user
 routes/
   api.js          taxonomy + files (upload/replace/slug/delete/tags) with dedup + approval branch
   admin.js        user + mail settings management
   approvals.js    list / approve / reject pending changes (admin only)
   audit.js        paginated audit log reads (admin only)
+  notifications.js  a user's own notifications: list / unread-count / mark-read
   dbadmin.js      phpMyAdmin-style table browser/editor (admin only)
   backup.js       zip export/import — link map + tags + local file bytes (admin only)
   shorturl.js     GET /f/:slug redirect
 views/            EJS pages — login/forgot-password/reset-password, dashboard,
                   admin-users/-taxonomy/-settings/-mail/-audit/-database/-backup/-approvals
-public/           style.css + client JS (app.js, nav.js, admin-*.js)
+public/           style.css + client JS (app.js, nav.js, notifications-ui.js, admin-*.js)
 scripts/seed.js   optional sample taxonomy
 data/             SQLite db + uploads/ + sessions (gitignored — see Maintaining this app)
 docker-compose.yml / Dockerfile / .dockerignore   container build + run

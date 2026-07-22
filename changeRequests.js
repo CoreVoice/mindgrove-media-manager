@@ -9,6 +9,7 @@ const slugs = require('./slug');
 const M = require('./mutations');
 const audit = require('./audit');
 const mailer = require('./mailer');
+const notifications = require('./notifications');
 
 /** Enqueue a pending change. `staged` = { path, driver } for create/replace bytes. */
 function queue(kind, { linkId = null, payload = {}, staged = null, byUserId }) {
@@ -91,6 +92,8 @@ async function approve(id, adminId) {
   if (!cr) throw new Error('Request not found or already reviewed');
   const p = JSON.parse(cr.payload);
 
+  let nav = { pageId: p.pageId, sectionId: p.sectionId, variantId: p.variantId };
+
   if (cr.kind === 'create') {
     if (slugs.slugExists(p.slug)) throw new Error(`Slug "${p.slug}" was taken since this was requested`);
     M.insertLink({
@@ -99,9 +102,11 @@ async function approve(id, adminId) {
     });
     const newLink = db.prepare('SELECT id FROM links WHERE slug = ?').get(p.slug);
     if (p.tagIds && p.tagIds.length) M.setTags(newLink.id, M.resolveTagIds({ tagIds: p.tagIds }, cr.requested_by), cr.requested_by);
+    nav.linkId = newLink.id;
   } else {
     const link = db.prepare('SELECT * FROM links WHERE id = ?').get(cr.link_id);
     if (!link) throw new Error('The target file no longer exists');
+    nav = { pageId: link.page_id, sectionId: link.section_id, variantId: link.variant_id, linkId: link.id };
 
     if (cr.kind === 'replace') {
       await M.replaceFile(link, p.up, p.originalName, p.mime, cr.requested_by);
@@ -110,6 +115,7 @@ async function approve(id, adminId) {
       if (p.slug !== link.slug) M.renameSlug(link, p.slug, cr.requested_by);
     } else if (cr.kind === 'delete') {
       await M.deleteLink(link, cr.requested_by);
+      nav.linkId = null; // the file is gone; still land on its variant slot
     } else if (cr.kind === 'tags') {
       M.setTags(link.id, M.resolveTagIds({ tagIds: p.tagIds || [], newNames: p.newNames || [] }, cr.requested_by), cr.requested_by);
     } else {
@@ -119,6 +125,7 @@ async function approve(id, adminId) {
 
   markReviewed(cr.id, 'approved', adminId);
   audit.log(adminId, 'change.approve', { entityType: 'change_request', entityId: cr.id, summary: `Approved ${cr.kind} request` });
+  notifications.create(cr.requested_by, `Approved: ${mailer.describeChange(cr.kind, p)}`, nav);
   mailer.notifyUserReviewed({ toEmail: requesterEmail(cr.requested_by), kind: cr.kind, payload: p, status: 'approved' }).catch(() => {});
   return { kind: cr.kind };
 }
@@ -127,10 +134,18 @@ async function approve(id, adminId) {
 async function reject(id, adminId, note) {
   const cr = db.prepare("SELECT * FROM change_requests WHERE id = ? AND status = 'pending'").get(id);
   if (!cr) throw new Error('Request not found or already reviewed');
+  const p = JSON.parse(cr.payload);
   if (cr.staged_path) await storage.remove(cr.staged_path, cr.staged_driver);
   markReviewed(cr.id, 'rejected', adminId, note);
   audit.log(adminId, 'change.reject', { entityType: 'change_request', entityId: cr.id, summary: `Rejected ${cr.kind} request` });
-  mailer.notifyUserReviewed({ toEmail: requesterEmail(cr.requested_by), kind: cr.kind, payload: JSON.parse(cr.payload), status: 'rejected', note }).catch(() => {});
+
+  let nav = { pageId: p.pageId, sectionId: p.sectionId, variantId: p.variantId };
+  if (cr.kind !== 'create') {
+    const link = db.prepare('SELECT * FROM links WHERE id = ?').get(cr.link_id);
+    if (link) nav = { pageId: link.page_id, sectionId: link.section_id, variantId: link.variant_id, linkId: link.id };
+  }
+  notifications.create(cr.requested_by, `Rejected: ${mailer.describeChange(cr.kind, p)}${note ? ` — ${note}` : ''}`, nav);
+  mailer.notifyUserReviewed({ toEmail: requesterEmail(cr.requested_by), kind: cr.kind, payload: p, status: 'rejected', note }).catch(() => {});
   return { kind: cr.kind };
 }
 

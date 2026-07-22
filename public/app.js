@@ -62,27 +62,67 @@ async function refreshTags() {
 }
 
 // ---- cascade ----
-pageSel.addEventListener('change', async () => {
+// Named (not just inline listeners) so restoreFromNotification() can await
+// each step in sequence when landing here from a notification click.
+async function onPageChange() {
   resetFrom('section');
   if (!pageSel.value) return;
   fillSelect(sectionSel, await api(`/api/pages/${pageSel.value}/sections`), 'Select section…');
   sectionSel.disabled = false;
-});
-sectionSel.addEventListener('change', async () => {
+}
+async function onSectionChange() {
   resetFrom('variant');
   if (!sectionSel.value) return;
   fillSelect(variantSel, await api(`/api/sections/${sectionSel.value}/variants`), 'Select variant…');
   variantSel.disabled = false;
-});
-variantSel.addEventListener('change', async () => {
+}
+async function onVariantChange() {
   if (!variantSel.value) { slot.classList.add('hidden'); return; }
   slot.classList.remove('hidden');
   await loadFiles();
-});
+}
+pageSel.addEventListener('change', onPageChange);
+sectionSel.addEventListener('change', onSectionChange);
+variantSel.addEventListener('change', onVariantChange);
 function resetFrom(level) {
   if (level === 'section') { fillSelect(sectionSel, [], 'Select section…'); sectionSel.disabled = true; }
   fillSelect(variantSel, [], 'Select variant…'); variantSel.disabled = true;
   slot.classList.add('hidden');
+}
+
+/** Arrived via a notification click — restore that page/section/variant and highlight the file. */
+async function restoreFromNotification() {
+  const q = new URLSearchParams(location.search);
+  const nPage = q.get('nPage');
+  if (!nPage) return;
+  const hasOption = (sel, val) => [...sel.options].some((o) => o.value === val);
+
+  if (!hasOption(pageSel, nPage)) return;
+  pageSel.value = nPage;
+  await onPageChange();
+
+  const nSection = q.get('nSection');
+  if (nSection && hasOption(sectionSel, nSection)) {
+    sectionSel.value = nSection;
+    await onSectionChange();
+
+    const nVariant = q.get('nVariant');
+    if (nVariant && hasOption(variantSel, nVariant)) {
+      variantSel.value = nVariant;
+      await onVariantChange();
+
+      const nLink = q.get('nLink');
+      if (nLink) {
+        const card = cards.querySelector(`[data-link-id="${nLink}"]`);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('highlight');
+          setTimeout(() => card.classList.remove('highlight'), 3000);
+        }
+      }
+    }
+  }
+  history.replaceState(null, '', location.pathname);
 }
 
 // ---- view toggle + checksum toggle ----
@@ -149,6 +189,7 @@ function renderPendingCreate(pc) {
 function renderCard(f) {
   const el = document.createElement('div');
   el.className = 'filecard';
+  el.dataset.linkId = f.id;
   const driverLabel = f.driver === 'bunny' ? 'Bunny CDN' : f.driver === 's3' ? 'S3' : 'Local';
   const tagsHtml = f.tags.map((t) => `<span class="chip readonly">${escapeHtml(t.name)}</span>`).join('');
   const pendingBadge = f.pending
@@ -294,4 +335,6 @@ if (zone) {
   zone.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) fileInput.files = e.dataTransfer.files; });
 }
 
-init().catch((e) => { uploadMsg && (uploadMsg.textContent = e.message); });
+init()
+  .then(restoreFromNotification)
+  .catch((e) => { uploadMsg && (uploadMsg.textContent = e.message); });

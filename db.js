@@ -114,6 +114,22 @@ CREATE TABLE IF NOT EXISTS change_requests (
   note          TEXT
 );
 
+-- In-dashboard notifications (mirrors the email, but visible without one).
+-- page_id/section_id/variant_id let a click restore that exact picker
+-- selection; link_id is NOT foreign-keyed to links(id) so a later file
+-- deletion never cascades away a user's notification about it.
+CREATE TABLE IF NOT EXISTS notifications (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message    TEXT    NOT NULL,
+  page_id    INTEGER,
+  section_id INTEGER,
+  variant_id INTEGER,
+  link_id    INTEGER,
+  read       INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 -- One-time password reset tokens, emailed to users.email.
 CREATE TABLE IF NOT EXISTS password_resets (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,6 +162,7 @@ CREATE INDEX IF NOT EXISTS idx_link_tags_tag    ON link_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_cr_status        ON change_requests(status);
 CREATE INDEX IF NOT EXISTS idx_cr_link          ON change_requests(link_id);
 CREATE INDEX IF NOT EXISTS idx_pwreset_token    ON password_resets(token);
+CREATE INDEX IF NOT EXISTS idx_notif_user        ON notifications(user_id, read);
 CREATE INDEX IF NOT EXISTS idx_audit_created    ON audit_log(created_at);
 `);
 

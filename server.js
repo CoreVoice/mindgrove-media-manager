@@ -123,6 +123,7 @@ app.get('/admin/approvals', auth.requireAdmin, (req, res) => {
 
 // --- API ---
 app.use('/api', require('./routes/api'));
+app.use('/api', require('./routes/notifications'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin/db', require('./routes/dbadmin'));
 app.use('/api/admin', require('./routes/backup'));

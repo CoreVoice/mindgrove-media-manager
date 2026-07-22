@@ -12,7 +12,19 @@
 <body data-role="<%= user ? user.role : '' %>">
   <header class="topbar">
     <a href="/" class="brand"><%- include('logo') %></a>
-    <button class="navToggle" id="navToggle" aria-label="Menu" aria-expanded="false">☰</button>
+    <div class="topbar-right">
+      <% if (user) { %>
+        <div class="notifwrap">
+          <button class="bellBtn" id="bellBtn" aria-label="Notifications">🔔<span class="badge hidden" id="notifBadge">0</span></button>
+          <div class="notifmenu hidden" id="notifMenu">
+            <div class="notifhead">Notifications</div>
+            <div id="notifList"></div>
+            <div class="muted small" id="notifEmpty" style="padding:.7rem .8rem">No notifications yet.</div>
+          </div>
+        </div>
+      <% } %>
+      <button class="navToggle" id="navToggle" aria-label="Menu" aria-expanded="false">☰</button>
+    </div>
     <nav id="mainNav">
       <% const p = (typeof page !== 'undefined') ? page : '';
          const settingsPages = ['settings', 'mail', 'audit', 'database', 'backup']; %>
@@ -37,3 +49,4 @@
     </nav>
   </header>
   <script src="/public/nav.js"></script>
+  <% if (user) { %><script src="/public/notifications-ui.js"></script><% } %>
