@@ -1,0 +1,28 @@
+<%- include('partials/header') %>
+<main class="container">
+  <h1>Taxonomy</h1>
+  <p class="muted">Pages → Sections → Variants. Deleting cascades to everything beneath it (including files). Handle with care.</p>
+
+  <div class="taxo-cols">
+    <section class="card taxo-col">
+      <h2>Pages</h2>
+      <form class="row" data-add="page"><input placeholder="new page" required /><button class="btn small">Add</button></form>
+      <ul class="taxo-list" id="pageList"></ul>
+    </section>
+
+    <section class="card taxo-col">
+      <h2>Sections <span class="muted small" id="secCtx"></span></h2>
+      <form class="row hidden" data-add="section"><input placeholder="new section" required /><button class="btn small">Add</button></form>
+      <ul class="taxo-list" id="sectionList"></ul>
+    </section>
+
+    <section class="card taxo-col">
+      <h2>Variants <span class="muted small" id="varCtx"></span></h2>
+      <form class="row hidden" data-add="variant"><input placeholder="new variant" required /><button class="btn small">Add</button></form>
+      <ul class="taxo-list" id="variantList"></ul>
+    </section>
+  </div>
+  <div id="taxoMsg" class="msg"></div>
+</main>
+<script src="/public/admin-taxonomy.js"></script>
+<%- include('partials/footer') %>

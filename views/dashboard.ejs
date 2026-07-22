@@ -1,0 +1,44 @@
+<%- include('partials/header') %>
+<main class="container">
+  <div class="page-head">
+    <p class="eyebrow">File console</p>
+    <h1>Upload &amp; manage files</h1>
+    <p class="lead">Pick a page, section and variant, then upload. Every file gets a stable short link — swap the file anytime, the link never changes.</p>
+  </div>
+
+  <section class="picker card">
+    <div class="field">
+      <div class="step"><span class="num">01</span><label for="pageSel">Page</label></div>
+      <select id="pageSel"><option value="">Select page…</option></select>
+    </div>
+    <div class="field">
+      <div class="step"><span class="num">02</span><label for="sectionSel">Section</label></div>
+      <select id="sectionSel" disabled><option value="">Select section…</option></select>
+    </div>
+    <div class="field">
+      <div class="step"><span class="num">03</span><label for="variantSel">Variant</label></div>
+      <select id="variantSel" disabled><option value="">Select variant…</option></select>
+    </div>
+  </section>
+
+  <p id="taxoHint" class="muted small hidden">Missing an option? Taxonomy is managed by an admin.</p>
+
+  <section id="slot" class="hidden">
+    <div class="card upload-zone" id="uploadZone">
+      <h2>Add a file</h2>
+      <div class="row wrap" style="margin-top:.9rem">
+        <input type="file" id="fileInput" />
+        <input type="text" id="slugInput" placeholder="custom-slug (optional)" style="max-width:240px" />
+        <button class="btn primary" id="uploadBtn">Upload</button>
+      </div>
+      <div class="muted small" style="margin-top:.6rem">Leave slug blank for an auto-generated short code. Max <span id="maxmb">100</span> MB.</div>
+      <div id="uploadMsg" class="msg"></div>
+    </div>
+
+    <p class="eyebrow" style="margin:1.6rem 0 .2rem">Files in this variant</p>
+    <div id="cards" class="cards"></div>
+    <div id="emptyCards" class="muted hidden">No files here yet — upload one above.</div>
+  </section>
+</main>
+<script src="/public/app.js"></script>
+<%- include('partials/footer') %>

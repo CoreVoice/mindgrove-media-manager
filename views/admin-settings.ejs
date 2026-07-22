@@ -1,0 +1,50 @@
+<%- include('partials/header') %>
+<main class="container">
+  <h1>Settings</h1>
+
+  <section class="card">
+    <h2>Storage location</h2>
+    <p class="muted small">Where <strong>new</strong> uploads are stored. Existing files keep serving from wherever they were uploaded — switching only affects future uploads. Secrets are stored encrypted and never shown again after saving.</p>
+
+    <div class="stack" style="max-width:560px">
+      <label class="radio"><input type="radio" name="driver" value="local" />
+        <span><strong>Local folder</strong> — files on this server (<code>data/uploads</code>). No CDN.</span></label>
+      <label class="radio"><input type="radio" name="driver" value="bunny" />
+        <span><strong>Bunny CDN</strong> — Bunny Storage + pull zone.</span></label>
+      <label class="radio"><input type="radio" name="driver" value="s3" />
+        <span><strong>S3-compatible</strong> — AWS S3, Bunny S3, Cloudflare R2, Backblaze B2, MinIO…</span></label>
+
+      <!-- Bunny credential fields -->
+      <fieldset class="credbox hidden" id="bunnyFields">
+        <legend>Bunny CDN connection</legend>
+        <label>Storage zone name <input name="b_zone" placeholder="corevoice" /></label>
+        <label>Storage access key (password) <input name="b_key" type="password" placeholder="•••• leave blank to keep" /></label>
+        <label>Storage host <input name="b_host" placeholder="storage.bunnycdn.com" /></label>
+        <label>Pull-zone host (public CDN) <input name="b_pull" placeholder="corevoice.b-cdn.net" /></label>
+        <label>Base path (folder prefix) <input name="b_base" placeholder="mindgrove" /></label>
+      </fieldset>
+
+      <!-- S3 credential fields -->
+      <fieldset class="credbox hidden" id="s3Fields">
+        <legend>S3 connection</legend>
+        <label>Endpoint (blank for AWS) <input name="s_endpoint" placeholder="https://storage.bunnycdn.com  ·  https://<acct>.r2.cloudflarestorage.com" /></label>
+        <label>Region <input name="s_region" placeholder="auto / us-east-1" /></label>
+        <label>Bucket <input name="s_bucket" placeholder="my-bucket" /></label>
+        <label>Access key ID <input name="s_keyid" type="password" placeholder="•••• leave blank to keep" /></label>
+        <label>Secret access key <input name="s_secret" type="password" placeholder="•••• leave blank to keep" /></label>
+        <label>Public base URL (CDN/custom domain for downloads) <input name="s_public" placeholder="https://cdn.example.com" /></label>
+        <label>Key prefix (folder) <input name="s_prefix" placeholder="mindgrove" /></label>
+        <label class="radio inline-check"><input type="checkbox" name="s_pathstyle" /> <span>Force path-style URLs (needed for MinIO / some providers)</span></label>
+      </fieldset>
+
+      <div class="row">
+        <button class="btn primary" id="saveBtn">Save</button>
+        <span id="msg" class="msg"></span>
+      </div>
+    </div>
+
+    <div id="status" class="muted small" style="margin-top:1rem"></div>
+  </section>
+</main>
+<script src="/public/admin-settings.js"></script>
+<%- include('partials/footer') %>

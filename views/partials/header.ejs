@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= typeof title !== 'undefined' ? title : 'Mindgrove Files' %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/public/style.css" />
+</head>
+<body data-role="<%= user ? user.role : '' %>">
+  <header class="topbar">
+    <a href="/" class="brand"><%- include('logo') %></a>
+    <nav>
+      <% const p = (typeof page !== 'undefined') ? page : ''; %>
+      <a href="/" class="<%= p === 'dashboard' ? 'active' : '' %>">Dashboard</a>
+      <% if (user && user.role === 'admin') { %>
+        <a href="/admin/users" class="<%= p === 'users' ? 'active' : '' %>">Users</a>
+        <a href="/admin/taxonomy" class="<%= p === 'taxonomy' ? 'active' : '' %>">Taxonomy</a>
+        <a href="/admin/settings" class="<%= p === 'settings' ? 'active' : '' %>">Settings</a>
+        <a href="/admin/database" class="<%= p === 'database' ? 'active' : '' %>">Database</a>
+      <% } %>
+      <span class="who"><%= user ? user.username : '' %><% if (user && user.role === 'admin') { %> · admin<% } %></span>
+      <form method="post" action="/logout" class="inline"><button class="linkbtn">Logout</button></form>
+    </nav>
+  </header>

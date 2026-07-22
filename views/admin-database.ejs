@@ -1,0 +1,52 @@
+<%- include('partials/header') %>
+<main class="container wide">
+  <div class="page-head">
+    <p class="eyebrow">Database</p>
+    <h1>Database browser</h1>
+    <p class="lead">Direct read/write access to every table. This bypasses all app logic —
+      deleting a link here won't remove its stored file, and edits aren't validated. Use with care.</p>
+  </div>
+
+  <div class="dbwrap">
+    <aside class="card dbtables">
+      <p class="eyebrow" style="margin-bottom:.6rem">Tables</p>
+      <ul class="taxo-list" id="tableList"></ul>
+    </aside>
+
+    <section class="card dbmain">
+      <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem">
+        <h2 id="tableTitle">Select a table</h2>
+        <div class="row">
+          <button class="btn small" id="tabBrowse">Browse</button>
+          <button class="btn small" id="tabSql">Run SQL</button>
+        </div>
+      </div>
+
+      <div id="browsePane">
+        <div class="row wrap" style="margin:.9rem 0; align-items:center">
+          <button class="btn small primary" id="addRowBtn">+ Add row</button>
+          <span class="muted small" id="pageInfo"></span>
+          <button class="btn small" id="prevPage">← Prev</button>
+          <button class="btn small" id="nextPage">Next →</button>
+        </div>
+        <div class="db-scroll">
+          <table class="grid" id="dataGrid"><thead></thead><tbody></tbody></table>
+        </div>
+        <div id="browseMsg" class="msg"></div>
+      </div>
+
+      <div id="sqlPane" class="hidden">
+        <textarea id="sqlInput" rows="5" placeholder="SELECT * FROM links LIMIT 20;" class="sqlbox"></textarea>
+        <div class="row" style="margin:.7rem 0">
+          <button class="btn primary small" id="runSqlBtn">Run</button>
+          <span id="sqlMsg" class="msg"></span>
+        </div>
+        <div class="db-scroll">
+          <table class="grid" id="sqlResult"><thead></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="/public/admin-database.js"></script>
+<%- include('partials/footer') %>

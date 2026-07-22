@@ -1,0 +1,24 @@
+{
+  "name": "mindgrove-media-manager",
+  "version": "1.0.0",
+  "description": "File upload platform with role auth, taxonomy, and stable short URLs backed by local disk, Bunny CDN, or S3.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1092.0",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.8.1",
+    "better-sqlite3-session-store": "^0.1.0",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "multer": "^2.0.1"
+  }
+}
