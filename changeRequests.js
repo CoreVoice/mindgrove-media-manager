@@ -7,6 +7,8 @@ const db = require('./db');
 const storage = require('./storage');
 const slugs = require('./slug');
 const M = require('./mutations');
+const audit = require('./audit');
+const mailer = require('./mailer');
 
 /** Enqueue a pending change. `staged` = { path, driver } for create/replace bytes. */
 function queue(kind, { linkId = null, payload = {}, staged = null, byUserId }) {
@@ -16,7 +18,13 @@ function queue(kind, { linkId = null, payload = {}, staged = null, byUserId }) {
        VALUES (?, ?, ?, ?, ?, ?)`
     )
     .run(kind, linkId, JSON.stringify(payload), staged ? staged.path : null, staged ? staged.driver : null, byUserId);
-  return info.lastInsertRowid;
+  const id = info.lastInsertRowid;
+
+  const requester = db.prepare('SELECT username FROM users WHERE id = ?').get(byUserId);
+  audit.log(byUserId, 'change.request', { entityType: 'change_request', entityId: id, summary: `Requested: ${kind} (awaiting approval)` });
+  mailer.notifyAdminPending({ kind, payload, requestedByUsername: requester ? requester.username : 'someone' }).catch(() => {});
+
+  return id;
 }
 
 /** Pending change (if any) against a given live link — for the "review pending" badge. */
@@ -68,8 +76,13 @@ function pendingCount() {
 }
 
 function markReviewed(id, status, adminId, note) {
-  db.prepare('UPDATE change_requests SET status = ?, reviewed_by = ?, reviewed_at = datetime(\'now\'), note = ? WHERE id = ?')
+  db.prepare("UPDATE change_requests SET status = ?, reviewed_by = ?, reviewed_at = datetime('now'), note = ? WHERE id = ?")
     .run(status, adminId, note || null, id);
+}
+
+function requesterEmail(userId) {
+  const u = db.prepare('SELECT email FROM users WHERE id = ?').get(userId);
+  return u ? u.email : null;
 }
 
 /** Apply a pending change. Throws (with a user-facing message) if no longer valid. */
@@ -85,26 +98,28 @@ async function approve(id, adminId) {
       label: p.label, up: p.up, mime: p.mime, originalName: p.originalName, byUserId: cr.requested_by,
     });
     const newLink = db.prepare('SELECT id FROM links WHERE slug = ?').get(p.slug);
-    if (p.tagIds && p.tagIds.length) M.setTags(newLink.id, M.resolveTagIds({ tagIds: p.tagIds }, cr.requested_by));
+    if (p.tagIds && p.tagIds.length) M.setTags(newLink.id, M.resolveTagIds({ tagIds: p.tagIds }, cr.requested_by), cr.requested_by);
   } else {
     const link = db.prepare('SELECT * FROM links WHERE id = ?').get(cr.link_id);
     if (!link) throw new Error('The target file no longer exists');
 
     if (cr.kind === 'replace') {
-      await M.replaceFile(link, p.up, p.originalName, p.mime);
+      await M.replaceFile(link, p.up, p.originalName, p.mime, cr.requested_by);
     } else if (cr.kind === 'slug') {
       if (p.slug !== link.slug && slugs.slugExists(p.slug)) throw new Error(`Slug "${p.slug}" is already taken`);
-      if (p.slug !== link.slug) M.renameSlug(link, p.slug);
+      if (p.slug !== link.slug) M.renameSlug(link, p.slug, cr.requested_by);
     } else if (cr.kind === 'delete') {
-      await M.deleteLink(link);
+      await M.deleteLink(link, cr.requested_by);
     } else if (cr.kind === 'tags') {
-      M.setTags(link.id, M.resolveTagIds({ tagIds: p.tagIds || [], newNames: p.newNames || [] }, cr.requested_by));
+      M.setTags(link.id, M.resolveTagIds({ tagIds: p.tagIds || [], newNames: p.newNames || [] }, cr.requested_by), cr.requested_by);
     } else {
       throw new Error(`Unknown change kind "${cr.kind}"`);
     }
   }
 
   markReviewed(cr.id, 'approved', adminId);
+  audit.log(adminId, 'change.approve', { entityType: 'change_request', entityId: cr.id, summary: `Approved ${cr.kind} request` });
+  mailer.notifyUserReviewed({ toEmail: requesterEmail(cr.requested_by), kind: cr.kind, payload: p, status: 'approved' }).catch(() => {});
   return { kind: cr.kind };
 }
 
@@ -114,6 +129,8 @@ async function reject(id, adminId, note) {
   if (!cr) throw new Error('Request not found or already reviewed');
   if (cr.staged_path) await storage.remove(cr.staged_path, cr.staged_driver);
   markReviewed(cr.id, 'rejected', adminId, note);
+  audit.log(adminId, 'change.reject', { entityType: 'change_request', entityId: cr.id, summary: `Rejected ${cr.kind} request` });
+  mailer.notifyUserReviewed({ toEmail: requesterEmail(cr.requested_by), kind: cr.kind, payload: JSON.parse(cr.payload), status: 'rejected', note }).catch(() => {});
   return { kind: cr.kind };
 }
 

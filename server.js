@@ -9,6 +9,7 @@ const helmet = require('helmet');
 const db = require('./db');
 const auth = require('./auth');
 const storage = require('./storage');
+const passwordReset = require('./passwordReset');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -67,6 +68,27 @@ app.post('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/login'));
 });
 
+// --- forgot / reset password ---
+app.get('/forgot-password', (req, res) => {
+  if (req.session.user) return res.redirect('/');
+  res.render('forgot-password', { sent: false, error: null });
+});
+app.post('/forgot-password', async (req, res) => {
+  await passwordReset.requestReset(req.body.usernameOrEmail).catch(() => {});
+  // always the same response — never reveal whether the account/email exists
+  res.render('forgot-password', { sent: true, error: null });
+});
+app.get('/reset-password', (req, res) => {
+  if (req.session.user) return res.redirect('/');
+  const valid = !!passwordReset.validToken(req.query.token);
+  res.render('reset-password', { token: req.query.token || '', valid, error: null, done: false });
+});
+app.post('/reset-password', (req, res) => {
+  const r = passwordReset.consumeToken(req.body.token, req.body.password);
+  if (!r.ok) return res.render('reset-password', { token: req.body.token, valid: !!passwordReset.validToken(req.body.token), error: r.error, done: false });
+  res.render('reset-password', { token: '', valid: false, error: null, done: true });
+});
+
 // --- app pages ---
 app.get('/', auth.requireAuth, (req, res) => {
   res.render('dashboard', { user: req.session.user, page: 'dashboard' });
@@ -81,6 +103,12 @@ app.get('/admin/taxonomy', auth.requireAdmin, (req, res) => {
 });
 app.get('/admin/settings', auth.requireAdmin, (req, res) => {
   res.render('admin-settings', { user: req.session.user, page: 'settings' });
+});
+app.get('/admin/mail', auth.requireAdmin, (req, res) => {
+  res.render('admin-mail', { user: req.session.user, page: 'mail' });
+});
+app.get('/admin/audit', auth.requireAdmin, (req, res) => {
+  res.render('admin-audit', { user: req.session.user, page: 'audit' });
 });
 app.get('/admin/database', auth.requireAdmin, (req, res) => {
   res.render('admin-database', { user: req.session.user, page: 'database' });
@@ -98,6 +126,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin/db', require('./routes/dbadmin'));
 app.use('/api/admin', require('./routes/backup'));
 app.use('/api/admin', require('./routes/approvals'));
+app.use('/api/admin', require('./routes/audit'));
 
 // --- 404 + errors ---
 app.use((req, res) => {

@@ -9,6 +9,7 @@ const settings = require('../settings');
 const slugs = require('../slug');
 const M = require('../mutations');
 const CR = require('../changeRequests');
+const audit = require('../audit');
 const { requireAuth, requireAdmin } = require('../auth');
 
 const router = express.Router();
@@ -97,6 +98,7 @@ router.post('/tags', requireAuth, (req, res) => {
 // ---------------------------------------------------------------------------
 // Taxonomy writes — ADMIN ONLY (unchanged)
 // ---------------------------------------------------------------------------
+const TAXO_SINGULAR = { pages: 'page', sections: 'section', variants: 'variant' };
 function createTaxo(table, extraCol) {
   return (req, res) => {
     const name = String(req.body.name || '').trim();
@@ -110,6 +112,7 @@ function createTaxo(table, extraCol) {
       } else {
         info = db.prepare(`INSERT INTO ${table} (name, created_by) VALUES (?, ?)`).run(name, req.session.user.id);
       }
+      audit.log(req.session.user.id, `${TAXO_SINGULAR[table]}.create`, { entityType: TAXO_SINGULAR[table], entityId: info.lastInsertRowid, summary: `Created ${TAXO_SINGULAR[table]} "${name}"` });
       res.json({ id: info.lastInsertRowid, name });
     } catch (e) {
       if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'Already exists' });
@@ -124,6 +127,7 @@ function renameTaxo(table) {
     try {
       const info = db.prepare(`UPDATE ${table} SET name = ? WHERE id = ?`).run(name, req.params.id);
       if (!info.changes) return res.status(404).json({ error: 'Not found' });
+      audit.log(req.session.user.id, `${TAXO_SINGULAR[table]}.rename`, { entityType: TAXO_SINGULAR[table], entityId: Number(req.params.id), summary: `Renamed ${TAXO_SINGULAR[table]} → "${name}"` });
       res.json({ id: Number(req.params.id), name });
     } catch (e) {
       if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'Already exists' });
@@ -141,6 +145,7 @@ router.delete('/pages/:id', requireAdmin, async (req, res) => {
   await purgeLinksWhere('page_id = ?', req.params.id);
   const info = db.prepare('DELETE FROM pages WHERE id = ?').run(req.params.id);
   if (!info.changes) return res.status(404).json({ error: 'Not found' });
+  audit.log(req.session.user.id, 'page.delete', { entityType: 'page', entityId: Number(req.params.id), summary: 'Deleted a page (cascaded to its sections/variants/files)' });
   res.json({ ok: true });
 });
 router.post('/sections', requireAdmin, createTaxo('sections', 'page_id'));
@@ -149,6 +154,7 @@ router.delete('/sections/:id', requireAdmin, async (req, res) => {
   await purgeLinksWhere('section_id = ?', req.params.id);
   const info = db.prepare('DELETE FROM sections WHERE id = ?').run(req.params.id);
   if (!info.changes) return res.status(404).json({ error: 'Not found' });
+  audit.log(req.session.user.id, 'section.delete', { entityType: 'section', entityId: Number(req.params.id), summary: 'Deleted a section (cascaded to its variants/files)' });
   res.json({ ok: true });
 });
 router.post('/variants', requireAdmin, createTaxo('variants', 'section_id'));
@@ -157,6 +163,7 @@ router.delete('/variants/:id', requireAdmin, async (req, res) => {
   await purgeLinksWhere('variant_id = ?', req.params.id);
   const info = db.prepare('DELETE FROM variants WHERE id = ?').run(req.params.id);
   if (!info.changes) return res.status(404).json({ error: 'Not found' });
+  audit.log(req.session.user.id, 'variant.delete', { entityType: 'variant', entityId: Number(req.params.id), summary: 'Deleted a variant (cascaded to its files)' });
   res.json({ ok: true });
 });
 
@@ -248,7 +255,7 @@ router.post('/links/:id/replace', requireAuth, upload.single('file'), async (req
     const up = await storage.uploadFile(key, req.file.path, req.file.mimetype, driver, digest);
 
     if (isAdmin(req)) {
-      await M.replaceFile(link, up, req.file.originalname, req.file.mimetype);
+      await M.replaceFile(link, up, req.file.originalname, req.file.mimetype, req.session.user.id);
       return res.json({ id: link.id, slug: link.slug, shortUrl: shortUrl(req, link.slug), applied: true });
     }
 
@@ -274,7 +281,7 @@ router.patch('/links/:id/slug', requireAuth, (req, res) => {
   if (slugs.slugExists(slug) || slugPendingInCreate(slug)) return res.status(409).json({ error: 'Slug already taken' });
 
   if (isAdmin(req)) {
-    M.renameSlug(link, slug);
+    M.renameSlug(link, slug, req.session.user.id);
     return res.json({ id: link.id, slug, shortUrl: shortUrl(req, slug), applied: true });
   }
   const crId = CR.queue('slug', { byUserId: req.session.user.id, linkId: link.id, payload: { slug } });
@@ -286,7 +293,7 @@ router.delete('/links/:id', requireAuth, async (req, res) => {
   const link = db.prepare('SELECT * FROM links WHERE id = ?').get(req.params.id);
   if (!link) return res.status(404).json({ error: 'Not found' });
   if (isAdmin(req)) {
-    await M.deleteLink(link);
+    await M.deleteLink(link, req.session.user.id);
     return res.json({ ok: true, applied: true });
   }
   const crId = CR.queue('delete', { byUserId: req.session.user.id, linkId: link.id });
@@ -301,7 +308,7 @@ router.put('/links/:id/tags', requireAuth, (req, res) => {
   const newNames = (Array.isArray(req.body.newTags) ? req.body.newTags : []).map((s) => String(s).trim()).filter(Boolean);
 
   if (isAdmin(req)) {
-    M.setTags(link.id, M.resolveTagIds({ tagIds, newNames }, req.session.user.id));
+    M.setTags(link.id, M.resolveTagIds({ tagIds, newNames }, req.session.user.id), req.session.user.id);
     return res.json({ ok: true, applied: true, tags: M.tagsFor(link.id) });
   }
   const crId = CR.queue('tags', { byUserId: req.session.user.id, linkId: link.id, payload: { tagIds, newNames } });

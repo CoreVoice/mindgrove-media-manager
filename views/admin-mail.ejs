@@ -1,0 +1,36 @@
+<%- include('partials/header') %>
+<main class="container">
+  <div class="page-head">
+    <p class="eyebrow">Settings · Mail</p>
+    <h1>Mail (SMTP / AWS SES)</h1>
+    <p class="lead">Used to notify you when a change is waiting for approval, and to email
+      users when their change goes live or is rejected — plus password-reset links.</p>
+  </div>
+
+  <section class="card">
+    <fieldset class="credbox">
+      <legend>SMTP connection</legend>
+      <label>Host <input name="host" placeholder="email-smtp.us-east-1.amazonaws.com" /></label>
+      <label>Port <input name="port" placeholder="587" /></label>
+      <label class="radio inline-check"><input type="checkbox" name="secure" /> <span>Use implicit TLS (port 465)</span></label>
+      <label>SMTP username <input name="smtpUser" type="password" placeholder="•••• leave blank to keep" /></label>
+      <label>SMTP password <input name="smtpPass" type="password" placeholder="•••• leave blank to keep" /></label>
+      <label>From address <input name="fromAddress" placeholder="notifications@yourdomain.com" /></label>
+      <label>Notify-to address (admin) <input name="notifyTo" placeholder="you@yourdomain.com" /></label>
+    </fieldset>
+
+    <div class="row wrap" style="margin-top:.9rem">
+      <button class="btn primary" id="saveBtn">Save</button>
+      <span id="msg" class="msg"></span>
+    </div>
+    <div id="status" class="muted small" style="margin-top:.8rem"></div>
+
+    <div class="row wrap" style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <input type="text" id="testTo" placeholder="send a test email to…" style="max-width:260px" />
+      <button class="btn small" id="testBtn">Send test email</button>
+      <span id="testMsg" class="msg"></span>
+    </div>
+  </section>
+</main>
+<script src="/public/admin-mail.js"></script>
+<%- include('partials/footer') %>

@@ -42,15 +42,27 @@ setup is needed to try it.
 - **user** — select existing taxonomy; upload / replace / edit-link / tag / remove files.
   **Every change a user makes is queued for admin review** — a user's new upload stays hidden
   from the live list and `/f/:slug` until approved (they see it marked "Pending review").
-- **admin** — all user actions, but applied **immediately** (no queue), plus **Approvals**
-  (`/admin/approvals`), **Users**, **Taxonomy CRUD**, **Settings**, **Database**, **Backup**.
+- **admin** — all user actions, but applied **immediately** (no queue), plus **Approvals**,
+  **Users**, **Taxonomy**, and a **Settings ▾** dropdown (Storage, Mail, Audit Log, Database,
+  Backup). The nav collapses to a hamburger menu on small screens.
 
-**Approvals** (`/admin/approvals`, admin only) lists every pending user change with an Approve
-(applies it via the exact same logic as an admin's direct action) or Reject (discards it and
-any uploaded-but-unapproved bytes). The nav shows a badge with the pending count.
+**Approvals** (`/admin/approvals`) lists every pending user change with an Approve (applies it
+via the exact same logic as an admin's direct action) or Reject (discards it and any
+uploaded-but-unapproved bytes). The nav shows a badge with the pending count.
 
-**Backup** (`/admin/backup`, admin only) exports/imports the taxonomy + link/slug map as a
-single JSON file — see [Maintaining this app](#maintaining-this-app) below for why this is the
+**Email notifications** (`/admin/mail`, admin only) — configure SMTP (e.g. AWS SES SMTP
+credentials) once, and: an admin gets emailed when something needs review; a user gets emailed
+when their change goes live or is rejected, if they have an **email** set (`/admin/users`).
+Give a user their own **Forgot password?** flow at `/login` → emails a one-hour, single-use
+reset link. Mail failures never break the app — uploads/approvals still work if SMTP is down
+or unconfigured, they just silently skip the notification.
+
+**Audit log** (`/admin/audit`) — every create/rename/delete across files, taxonomy, users, and
+settings, who did it and when (IST), filterable by action type. Includes the approval-queue
+events themselves (request submitted, approved, rejected) alongside the underlying change.
+
+**Backup** (`/admin/backup`, admin only) exports/imports the taxonomy + link/slug map (+ tags)
+as a single file — see [Maintaining this app](#maintaining-this-app) below for why this is the
 thing actually worth keeping a log of.
 
 **Database browser** (`/admin/database`, admin only) is a phpMyAdmin-style direct table
@@ -58,9 +70,9 @@ editor: browse any table, click a cell to edit it inline, add/delete rows, or ru
 It bypasses all app logic — deleting a `links` row here won't remove its stored file, and
 nothing is validated. It's a power tool for fixing data by hand, not a normal workflow.
 
-**Storage location** is chosen in **Settings** (admin): **Local folder** or **Bunny CDN**.
-Switching affects only *new* uploads — each existing file keeps serving from wherever it was
-stored. The `.env` `STORAGE_DRIVER` is just the initial default.
+**Storage location** is chosen in **Settings → Storage** (admin): **Local folder**, **Bunny
+CDN**, or **S3-compatible**. Switching affects only *new* uploads — each existing file keeps
+serving from wherever it was stored. The `.env` `STORAGE_DRIVER` is just the initial default.
 
 ---
 
@@ -74,6 +86,9 @@ stored. The `.env` `STORAGE_DRIVER` is just the initial default.
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | seed admin (first run only) |
 | `MAX_FILE_MB` | max upload size (default 100) |
 | `MAX_BACKUP_MB` | max export/import archive size (default 1024) |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` | mail transport (e.g. AWS SES SMTP); can also be set at `/admin/mail` |
+| `MAIL_FROM` | from-address for all outgoing mail |
+| `MAIL_NOTIFY_TO` | admin address notified when a change needs review |
 | `STORAGE_DRIVER` | `local` (dev) or `bunny` |
 | `BUNNY_STORAGE_ZONE` | Bunny storage zone name (`corevoice`) |
 | `BUNNY_STORAGE_ACCESS_KEY` | storage-zone password/access key |
@@ -210,15 +225,21 @@ slug.js           slug generate/validate
 mutations.js      shared apply-logic (create/replace/rename/delete/tags) — used by
                   both the admin-instant path and the approval path, identically
 changeRequests.js approval queue: enqueue user changes, approve (apply) / reject (discard)
+mailConfig.js     resolves active mail (SMTP) config (DB settings override .env)
+mailer.js         nodemailer transport + notification templates; never throws
+passwordReset.js  one-hour single-use reset tokens, emailed via mailer
+audit.js          write/read the audit log
 routes/
   api.js          taxonomy + files (upload/replace/slug/delete/tags) with dedup + approval branch
-  admin.js        user management + storage settings
+  admin.js        user + mail settings management
   approvals.js    list / approve / reject pending changes (admin only)
+  audit.js        paginated audit log reads (admin only)
   dbadmin.js      phpMyAdmin-style table browser/editor (admin only)
   backup.js       zip export/import — link map + tags + local file bytes (admin only)
   shorturl.js     GET /f/:slug redirect
-views/            EJS pages (login, dashboard, admin-users/-taxonomy/-settings/-database/-backup)
-public/           style.css + client JS (app.js, admin-*.js)
+views/            EJS pages — login/forgot-password/reset-password, dashboard,
+                  admin-users/-taxonomy/-settings/-mail/-audit/-database/-backup/-approvals
+public/           style.css + client JS (app.js, nav.js, admin-*.js)
 scripts/seed.js   optional sample taxonomy
 data/             SQLite db (gitignored) + uploads/ (tracked in git for backup)
 docker-compose.yml / Dockerfile / .dockerignore   container build + run

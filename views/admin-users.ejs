@@ -5,6 +5,7 @@
     <h2>Create user</h2>
     <form id="createUserForm" class="row wrap">
       <input name="username" placeholder="username" required />
+      <input name="email" type="email" placeholder="email (for notifications)" />
       <input name="password" type="password" placeholder="password (min 8)" required />
       <select name="role"><option value="user">user</option><option value="admin">admin</option></select>
       <button class="btn primary" type="submit">Create</button>
@@ -13,10 +14,12 @@
   </section>
 
   <section class="card">
-    <table class="grid" id="userTable">
-      <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div class="db-scroll">
+      <table class="grid" id="userTable">
+        <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </section>
 </main>
 <script src="/public/admin-users.js"></script>

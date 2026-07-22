@@ -114,6 +114,30 @@ CREATE TABLE IF NOT EXISTS change_requests (
   note          TEXT
 );
 
+-- One-time password reset tokens, emailed to users.email.
+CREATE TABLE IF NOT EXISTS password_resets (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token      TEXT    NOT NULL UNIQUE,
+  expires_at TEXT    NOT NULL,
+  used       INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Who did what, when. actor_username is captured at write time so it stays
+-- readable even if the user is later renamed or deleted.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_id      INTEGER REFERENCES users(id),
+  actor_username TEXT,
+  action        TEXT    NOT NULL,   -- e.g. "link.create", "user.update", "settings.mail"
+  entity_type   TEXT,
+  entity_id     INTEGER,
+  summary       TEXT    NOT NULL,
+  details       TEXT,               -- JSON, optional
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_redirects_link   ON redirects(link_id);
 CREATE INDEX IF NOT EXISTS idx_sections_page    ON sections(page_id);
 CREATE INDEX IF NOT EXISTS idx_variants_section ON variants(section_id);
@@ -121,6 +145,15 @@ CREATE INDEX IF NOT EXISTS idx_links_variant    ON links(variant_id);
 CREATE INDEX IF NOT EXISTS idx_link_tags_tag    ON link_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_cr_status        ON change_requests(status);
 CREATE INDEX IF NOT EXISTS idx_cr_link          ON change_requests(link_id);
+CREATE INDEX IF NOT EXISTS idx_pwreset_token    ON password_resets(token);
+CREATE INDEX IF NOT EXISTS idx_audit_created    ON audit_log(created_at);
 `);
+
+// --- guarded migrations (ALTER TABLE has no IF NOT EXISTS in sqlite) ---
+function ensureColumn(table, column, decl) {
+  const cols = db.prepare(`PRAGMA table_info("${table}")`).all().map((c) => c.name);
+  if (!cols.includes(column)) db.exec(`ALTER TABLE "${table}" ADD COLUMN ${column} ${decl}`);
+}
+ensureColumn('users', 'email', 'TEXT');
 
 module.exports = db;

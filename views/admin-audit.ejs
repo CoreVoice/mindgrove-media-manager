@@ -1,0 +1,27 @@
+<%- include('partials/header') %>
+<main class="container wide">
+  <div class="page-head">
+    <p class="eyebrow">Settings · Audit log</p>
+    <h1>Who did what, when</h1>
+    <p class="lead">Every create/update/delete across files, taxonomy, users, and settings —
+      including changes made through the approval queue.</p>
+  </div>
+
+  <section class="card">
+    <div class="row wrap" style="margin-bottom:.8rem;align-items:center">
+      <select id="actionFilter"><option value="">All actions</option></select>
+      <span class="muted small" id="pageInfo"></span>
+      <button class="btn small" id="prevPage">← Prev</button>
+      <button class="btn small" id="nextPage">Next →</button>
+    </div>
+    <div class="db-scroll">
+      <table class="grid" id="auditTable">
+        <thead><tr><th>When (IST)</th><th>Who</th><th>Action</th><th>Summary</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="msg" class="msg"></div>
+  </section>
+</main>
+<script src="/public/admin-audit.js"></script>
+<%- include('partials/footer') %>

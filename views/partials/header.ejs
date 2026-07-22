@@ -12,18 +12,28 @@
 <body data-role="<%= user ? user.role : '' %>">
   <header class="topbar">
     <a href="/" class="brand"><%- include('logo') %></a>
-    <nav>
-      <% const p = (typeof page !== 'undefined') ? page : ''; %>
+    <button class="navToggle" id="navToggle" aria-label="Menu" aria-expanded="false">☰</button>
+    <nav id="mainNav">
+      <% const p = (typeof page !== 'undefined') ? page : '';
+         const settingsPages = ['settings', 'mail', 'audit', 'database', 'backup']; %>
       <a href="/" class="<%= p === 'dashboard' ? 'active' : '' %>">Dashboard</a>
       <% if (user && user.role === 'admin') { %>
         <a href="/admin/approvals" class="<%= p === 'approvals' ? 'active' : '' %>">Approvals<% if (typeof pendingCount !== 'undefined' && pendingCount > 0) { %> <span class="badge"><%= pendingCount %></span><% } %></a>
         <a href="/admin/users" class="<%= p === 'users' ? 'active' : '' %>">Users</a>
         <a href="/admin/taxonomy" class="<%= p === 'taxonomy' ? 'active' : '' %>">Taxonomy</a>
-        <a href="/admin/settings" class="<%= p === 'settings' ? 'active' : '' %>">Settings</a>
-        <a href="/admin/database" class="<%= p === 'database' ? 'active' : '' %>">Database</a>
-        <a href="/admin/backup" class="<%= p === 'backup' ? 'active' : '' %>">Backup</a>
+        <details class="navdrop<%= settingsPages.includes(p) ? ' active-parent' : '' %>">
+          <summary>Settings</summary>
+          <div class="navmenu">
+            <a href="/admin/settings" class="<%= p === 'settings' ? 'active' : '' %>">Storage</a>
+            <a href="/admin/mail" class="<%= p === 'mail' ? 'active' : '' %>">Mail</a>
+            <a href="/admin/audit" class="<%= p === 'audit' ? 'active' : '' %>">Audit Log</a>
+            <a href="/admin/database" class="<%= p === 'database' ? 'active' : '' %>">Database</a>
+            <a href="/admin/backup" class="<%= p === 'backup' ? 'active' : '' %>">Backup</a>
+          </div>
+        </details>
       <% } %>
       <span class="who"><%= user ? user.username : '' %><% if (user && user.role === 'admin') { %> · admin<% } %></span>
       <form method="post" action="/logout" class="inline"><button class="linkbtn">Logout</button></form>
     </nav>
   </header>
+  <script src="/public/nav.js"></script>

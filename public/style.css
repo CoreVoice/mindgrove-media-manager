@@ -94,6 +94,52 @@ h2 { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; }
 .topbar nav .who { color: #6d7073; font-size: .82rem; letter-spacing: .02em; }
 .inline { display: inline; margin: 0; }
 .linkbtn { background: none; border: none; color: #b9bcbf; cursor: pointer; font: inherit; font-weight: 600; font-size: .9rem; padding: 0; }
+
+/* ---------- Settings dropdown (native <details>, no JS required to open) ---------- */
+.navdrop { position: relative; }
+.navdrop summary {
+  color: #b9bcbf; font-weight: 600; font-size: .9rem; cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: .3rem; user-select: none;
+}
+.navdrop summary::-webkit-details-marker { display: none; }
+.navdrop summary::after { content: "▾"; font-size: .7em; opacity: .8; }
+.navdrop:hover summary, .navdrop[open] summary, .navdrop.active-parent summary { color: #fff; }
+.navdrop.active-parent summary::after { color: var(--green); }
+.navmenu {
+  position: absolute; top: calc(100% + .9rem); left: 0; min-width: 170px;
+  background: var(--near-black-2); border: 1px solid #2a2c2f; border-radius: 10px;
+  padding: .4rem; display: flex; flex-direction: column; gap: .1rem;
+  box-shadow: 0 20px 50px -16px rgba(0,0,0,.7); z-index: 30;
+}
+.navmenu a { padding: .5rem .6rem; border-radius: 6px; font-size: .87rem; color: #c9cbcd; }
+.navmenu a:hover { background: rgba(255,255,255,.06); color: #fff; }
+.navmenu a.active { color: var(--green); }
+
+/* ---------- mobile hamburger ---------- */
+.navToggle {
+  display: none; background: none; border: 1px solid #3a3c3f; color: #fff; border-radius: 8px;
+  font-size: 1.1rem; padding: .3rem .6rem; cursor: pointer;
+}
+
+@media (max-width: 880px) {
+  .navToggle { display: inline-flex; }
+  .topbar nav {
+    position: fixed; top: 58px; left: 0; right: 0; bottom: 0;
+    background: var(--near-black); border-top: 1px solid #2a2c2f;
+    flex-direction: column; align-items: stretch; gap: 0; padding: .5rem 0;
+    transform: translateY(-8px); opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity .15s, transform .15s;
+    overflow-y: auto;
+  }
+  .topbar nav.open { opacity: 1; transform: translateY(0); pointer-events: auto; visibility: visible; }
+  .topbar nav a, .topbar nav .linkbtn { padding: .8rem 1.2rem; width: 100%; }
+  .topbar nav a.active::after { display: none; }
+  .topbar nav a.active { background: rgba(77,164,82,.12); }
+  .topbar nav .who { padding: .5rem 1.2rem; }
+  .navdrop { width: 100%; }
+  .navdrop summary { padding: .8rem 1.2rem; }
+  .navmenu { position: static; box-shadow: none; border: none; background: rgba(255,255,255,.03); margin: 0 .8rem .4rem; }
+}
 .linkbtn:hover { color: var(--green); }
 
 .container { max-width: 1040px; margin: 0 auto; padding: 2.2rem 1.5rem 4rem; }
