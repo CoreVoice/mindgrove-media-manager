@@ -1,8 +1,13 @@
 node_modules/
 .env
-data/
-*.sqlite
-*.sqlite3
+
+# Uploaded files ARE tracked (data/uploads/) for git-based backup, per request.
+# Everything else under data/ stays out: sqlite db, its WAL/SHM journals, and
+# multer's temp staging dir — none of that belongs in version control.
+data/tmp/
+data/*.sqlite
+data/*.sqlite3
+data/*.sqlite-*
 *.db
 npm-debug.log*
 .DS_Store
