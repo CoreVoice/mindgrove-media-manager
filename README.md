@@ -109,6 +109,16 @@ mounts a named volume (`data`) at `/app/data` so the database and uploads surviv
 and rebuilds. To stop: `docker compose down` (add `-v` only if you actually want to wipe the
 volume/data).
 
+One volume is enough here — app *code* lives in the image (rebuilt fresh each deploy),
+`/app/data` is the only thing that persists, so updating the app never touches stored data.
+(This isn't like a Postgres-backed app such as n8n, which needs a second volume because it
+runs a *separate database container* — this app's SQLite db is embedded in the same process.)
+
+`data/uploads/` is also committed to git (see `.gitignore`) as a lightweight backup of what's
+on local-disk storage. Worth knowing: git isn't a real backup system for growing binary
+files — history only grows, GitHub hard-blocks any file over 100MB, and there's no dedup. Fine
+for small internal use; for real volume, snapshot the Docker volume or rely on the CDN instead.
+
 ### Plain Docker
 
 ```bash
@@ -169,7 +179,7 @@ routes/
 views/            EJS pages (login, dashboard, admin-users/-taxonomy/-settings/-database)
 public/           style.css + client JS (app.js, admin-*.js)
 scripts/seed.js   optional sample taxonomy
-data/             SQLite + uploads + sessions (gitignored, runtime)
+data/             SQLite db (gitignored) + uploads/ (tracked in git for backup)
 docker-compose.yml / Dockerfile / .dockerignore   container build + run
 ```
 
