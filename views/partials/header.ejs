@@ -20,6 +20,7 @@
         <a href="/admin/taxonomy" class="<%= p === 'taxonomy' ? 'active' : '' %>">Taxonomy</a>
         <a href="/admin/settings" class="<%= p === 'settings' ? 'active' : '' %>">Settings</a>
         <a href="/admin/database" class="<%= p === 'database' ? 'active' : '' %>">Database</a>
+        <a href="/admin/backup" class="<%= p === 'backup' ? 'active' : '' %>">Backup</a>
       <% } %>
       <span class="who"><%= user ? user.username : '' %><% if (user && user.role === 'admin') { %> · admin<% } %></span>
       <form method="post" action="/logout" class="inline"><button class="linkbtn">Logout</button></form>

@@ -40,7 +40,12 @@ setup is needed to try it.
 **Roles**
 - **user** — select existing taxonomy, upload / replace / remove / edit-link files.
 - **admin** — all of the above + **Users** (`/admin/users`) + **Taxonomy CRUD**
-  (`/admin/taxonomy`) + **Settings** (`/admin/settings`) + **Database** (`/admin/database`).
+  (`/admin/taxonomy`) + **Settings** (`/admin/settings`) + **Database** (`/admin/database`)
+  + **Backup** (`/admin/backup`).
+
+**Backup** (`/admin/backup`, admin only) exports/imports the taxonomy + link/slug map as a
+single JSON file — see [Maintaining this app](#maintaining-this-app) below for why this is the
+thing actually worth keeping a log of.
 
 **Database browser** (`/admin/database`, admin only) is a phpMyAdmin-style direct table
 editor: browse any table, click a cell to edit it inline, add/delete rows, or run raw SQL.
@@ -139,6 +144,28 @@ short link is served by the **app** domain — the app must be running to resolv
 
 ---
 
+## Maintaining this app
+
+The thing that actually matters here is the **slug → file map**: once a `/f/:slug` link is
+pasted into a doc, a product page, a support macro, wherever — you can't easily chase down and
+edit every place it's used. So the priority isn't "back up the whole database," it's "never
+lose the map of what every URL points to." Three different assets, three different treatments:
+
+| Asset | Contains | Recommendation |
+|---|---|---|
+| **Link map** (taxonomy + links + redirects) | Every page/section/variant, every slug, what file it maps to, and every renamed-away old slug | **Export regularly** (`/admin/backup`) and commit the JSON to git, e.g. under `backups/`. Small, plain-text, diffable, **no secrets** — safe to keep in history indefinitely. |
+| **Uploaded files** (`data/uploads/`) | The actual file bytes, when using the **local** storage driver | Already tracked in git (see `.gitignore`) as a lightweight backup. Only applies to `local` — once you're on Bunny/S3, the bytes live there instead and this becomes irrelevant. |
+| **Full sqlite db** (`data/app.sqlite`) | Users + password hashes, sessions, **encrypted storage credentials**, plus everything in the link map | **Don't commit this.** It's runtime state with secrets in it. Back it up via a volume snapshot (`docker volume` / disk snapshot) if you want full disaster recovery of accounts too — not via git. |
+
+**Recovery on a fresh clone/host:** clone the repo (gets `data/uploads/` + whatever's under
+`backups/`) → boot the app (seeds a fresh admin from `.env`) → **Backup → Import** the latest
+export to restore taxonomy + every slug + redirect history. Import never overwrites an existing
+slug, so it's also safe to run against a live db to merge in a colleague's changes. Only thing
+it can't restore on its own: user accounts (recreate via `/admin/users`) and, for local-driver
+files, whatever wasn't yet committed to `data/uploads/` at export time.
+
+---
+
 ## How it works
 
 ```
@@ -175,8 +202,9 @@ routes/
   api.js          taxonomy + files (upload/replace/slug/delete)
   admin.js        user management + storage settings
   dbadmin.js      phpMyAdmin-style table browser/editor (admin only)
+  backup.js       link-map export/import (admin only)
   shorturl.js     GET /f/:slug redirect
-views/            EJS pages (login, dashboard, admin-users/-taxonomy/-settings/-database)
+views/            EJS pages (login, dashboard, admin-users/-taxonomy/-settings/-database/-backup)
 public/           style.css + client JS (app.js, admin-*.js)
 scripts/seed.js   optional sample taxonomy
 data/             SQLite db (gitignored) + uploads/ (tracked in git for backup)

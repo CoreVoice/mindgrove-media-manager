@@ -77,11 +77,15 @@ app.get('/admin/settings', auth.requireAdmin, (req, res) => {
 app.get('/admin/database', auth.requireAdmin, (req, res) => {
   res.render('admin-database', { user: req.session.user, page: 'database' });
 });
+app.get('/admin/backup', auth.requireAdmin, (req, res) => {
+  res.render('admin-backup', { user: req.session.user, page: 'backup' });
+});
 
 // --- API ---
 app.use('/api', require('./routes/api'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin/db', require('./routes/dbadmin'));
+app.use('/api/admin', require('./routes/backup'));
 
 // --- 404 + errors ---
 app.use((req, res) => {
