@@ -271,6 +271,56 @@ code { background: var(--panel); padding: .1rem .4rem; border-radius: 5px; font-
   .dbtables { position: static; max-height: none; }
 }
 
+/* ---------- badges ---------- */
+.badge { display: inline-block; min-width: 1.1rem; text-align: center; font-size: .68rem; font-weight: 800; padding: .05rem .38rem; border-radius: 999px; background: var(--green); color: #fff; vertical-align: middle; }
+.badge.warn { background: #b3701a; }
+.topbar nav a .badge { margin-left: .1rem; }
+
+/* ---------- chips / tags ---------- */
+.tagpicker { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-top: .7rem; }
+.tagpicker .tagInput { width: auto; min-width: 140px; padding: .35rem .5rem; font-size: .82rem; }
+.chips { display: inline-flex; flex-wrap: wrap; gap: .3rem; }
+.chip { display: inline-flex; align-items: center; gap: .25rem; font-size: .74rem; font-weight: 600; padding: .12rem .5rem; border-radius: 999px; background: var(--green-050); color: var(--green-700); }
+.chip button { background: none; border: none; color: var(--green-700); cursor: pointer; font-size: .85rem; line-height: 1; padding: 0; }
+.chip.readonly { background: var(--panel-2); color: var(--muted); }
+.cardtags { display: flex; flex-wrap: wrap; gap: .3rem; }
+
+/* ---------- checksum row (revealed by the "Show checksums" toggle) ---------- */
+.checksum { display: none; align-items: center; gap: .4rem; }
+.cards.show-sum .checksum { display: flex; }
+.checksum code { font-size: .68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; flex: 1; }
+
+/* ---------- view toggle + inline toggle ---------- */
+.viewtoggle { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.viewtoggle button { background: var(--panel); border: none; padding: .3rem .55rem; cursor: pointer; font-size: 1rem; color: var(--muted); }
+.viewtoggle button.active { background: var(--green); color: #fff; }
+.toggle { display: inline-flex; align-items: center; gap: .35rem; color: var(--muted); cursor: pointer; }
+.toggle input { accent-color: var(--green); }
+
+.filecard.pending { border-style: dashed; opacity: .92; }
+
+/* ---------- list view ---------- */
+.cards.list { display: block; }
+.cards.list .filecard {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "name meta" "tags tags" "sum sum" "link link" "editor editor" "tageditor tageditor" "actions actions";
+  gap: .4rem .8rem; align-items: center; margin-bottom: .6rem;
+}
+.cards.list .filecard .name { grid-area: name; }
+.cards.list .filecard .meta:not(.updated) { grid-area: meta; justify-self: end; }
+.cards.list .filecard .updated { grid-area: name; align-self: end; font-size: .72rem; }
+.cards.list .filecard .cardtags { grid-area: tags; }
+.cards.list .filecard .checksum { grid-area: sum; }
+.cards.list .filecard [data-role="display"] { grid-area: link; }
+.cards.list .filecard [data-role="editor"] { grid-area: editor; }
+.cards.list .filecard [data-role="tag-editor"] { grid-area: tageditor; }
+.cards.list .filecard .actions { grid-area: actions; }
+@media (max-width: 640px) {
+  .cards.list .filecard { grid-template-columns: 1fr; grid-template-areas: "name" "meta" "tags" "sum" "link" "editor" "tageditor" "actions"; }
+  .cards.list .filecard .meta:not(.updated) { justify-self: start; }
+}
+
 /* ---------- footer ---------- */
 .foot { text-align: center; color: var(--faint); font-size: .78rem; padding: 2.5rem 0 1rem; }
 

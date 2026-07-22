@@ -44,6 +44,8 @@ function buildManifest() {
       )
       .all(),
     redirects: db.prepare('SELECT old_slug, link_id, created_at FROM redirects ORDER BY old_slug').all(),
+    tags: db.prepare('SELECT id, name FROM tags ORDER BY id').all(),
+    linkTags: db.prepare('SELECT link_id, tag_id FROM link_tags ORDER BY link_id').all(),
   };
 }
 
@@ -154,6 +156,20 @@ function importManifest(data, adminId) {
         r.old_slug, newLinkId, r.created_at || new Date().toISOString()
       );
       summary.redirects.inserted++;
+    }
+
+    // tags: match existing by name, else create; then reattach to imported links
+    const tagMap = {};
+    for (const t of data.tags || []) {
+      const existing = db.prepare('SELECT id FROM tags WHERE name = ? COLLATE NOCASE').get(t.name);
+      if (existing) tagMap[t.id] = existing.id;
+      else tagMap[t.id] = db.prepare('INSERT INTO tags (name, created_by) VALUES (?, ?)').run(t.name, adminId).lastInsertRowid;
+    }
+    const insTag = db.prepare('INSERT OR IGNORE INTO link_tags (link_id, tag_id) VALUES (?, ?)');
+    for (const lt of data.linkTags || []) {
+      const newLinkId = linkMap[lt.link_id];
+      const newTagId = tagMap[lt.tag_id];
+      if (newLinkId && newTagId) insTag.run(newLinkId, newTagId);
     }
   });
 

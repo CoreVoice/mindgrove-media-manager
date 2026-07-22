@@ -30,6 +30,14 @@ app.use('/files', express.static(storage.LOCAL_DIR));
 // --- sessions ---
 app.use(auth.sessionMiddleware());
 app.use(auth.attachUser);
+// expose pending-approval count to views (nav badge), admins only
+app.use((req, res, next) => {
+  res.locals.pendingCount = 0;
+  if (req.session.user && req.session.user.role === 'admin') {
+    try { res.locals.pendingCount = require('./changeRequests').pendingCount(); } catch (_) {}
+  }
+  next();
+});
 
 // --- public short URL (before auth gate) ---
 app.use('/', require('./routes/shorturl'));
@@ -80,12 +88,16 @@ app.get('/admin/database', auth.requireAdmin, (req, res) => {
 app.get('/admin/backup', auth.requireAdmin, (req, res) => {
   res.render('admin-backup', { user: req.session.user, page: 'backup' });
 });
+app.get('/admin/approvals', auth.requireAdmin, (req, res) => {
+  res.render('admin-approvals', { user: req.session.user, page: 'approvals' });
+});
 
 // --- API ---
 app.use('/api', require('./routes/api'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin/db', require('./routes/dbadmin'));
 app.use('/api/admin', require('./routes/backup'));
+app.use('/api/admin', require('./routes/approvals'));
 
 // --- 404 + errors ---
 app.use((req, res) => {

@@ -32,16 +32,22 @@ setup is needed to try it.
 1. **Log in** (`/login`).
 2. Pick **Page → Section → Variant** (cascading dropdowns).
 3. **Upload** a file → get a short link `https://<host>/f/<slug>`. Leave slug blank for an
-   auto-code, or set a custom one.
-4. Per file card: **Copy** link · **Replace file** (overwrite the bytes, same link) ·
-   **Edit link** (change slug — the old slug keeps working, forwarding to the new one) ·
-   **Remove** (click twice to confirm).
+   auto-code, or set a custom one. Optionally add **tags** (reusable labels like `datasheet`).
+   Uploading an identical file (same name + contents) into the same variant is blocked.
+4. Per file card: **Download** · **Copy** link · **Replace file** (overwrite the bytes, same
+   link) · **Edit link** (change slug — the old slug keeps forwarding) · **Tags** · **Remove**.
+5. Toggle **card / list view** and **Show checksums** (SHA-256, with copy) at the top of the list.
 
-**Roles**
-- **user** — select existing taxonomy, upload / replace / remove / edit-link files.
-- **admin** — all of the above + **Users** (`/admin/users`) + **Taxonomy CRUD**
-  (`/admin/taxonomy`) + **Settings** (`/admin/settings`) + **Database** (`/admin/database`)
-  + **Backup** (`/admin/backup`).
+**Roles & approval**
+- **user** — select existing taxonomy; upload / replace / edit-link / tag / remove files.
+  **Every change a user makes is queued for admin review** — a user's new upload stays hidden
+  from the live list and `/f/:slug` until approved (they see it marked "Pending review").
+- **admin** — all user actions, but applied **immediately** (no queue), plus **Approvals**
+  (`/admin/approvals`), **Users**, **Taxonomy CRUD**, **Settings**, **Database**, **Backup**.
+
+**Approvals** (`/admin/approvals`, admin only) lists every pending user change with an Approve
+(applies it via the exact same logic as an admin's direct action) or Reject (discards it and
+any uploaded-but-unapproved bytes). The nav shows a badge with the pending count.
 
 **Backup** (`/admin/backup`, admin only) exports/imports the taxonomy + link/slug map as a
 single JSON file — see [Maintaining this app](#maintaining-this-app) below for why this is the
@@ -201,11 +207,15 @@ storageConfig.js  resolves active storage config (DB settings override .env), se
 crypto.js         AES-256-GCM helper for encrypting stored credentials at rest
 settings.js       key/value app settings; active storage driver
 slug.js           slug generate/validate
+mutations.js      shared apply-logic (create/replace/rename/delete/tags) — used by
+                  both the admin-instant path and the approval path, identically
+changeRequests.js approval queue: enqueue user changes, approve (apply) / reject (discard)
 routes/
-  api.js          taxonomy + files (upload/replace/slug/delete)
+  api.js          taxonomy + files (upload/replace/slug/delete/tags) with dedup + approval branch
   admin.js        user management + storage settings
+  approvals.js    list / approve / reject pending changes (admin only)
   dbadmin.js      phpMyAdmin-style table browser/editor (admin only)
-  backup.js       zip export/import — link map + local file bytes (admin only)
+  backup.js       zip export/import — link map + tags + local file bytes (admin only)
   shorturl.js     GET /f/:slug redirect
 views/            EJS pages (login, dashboard, admin-users/-taxonomy/-settings/-database/-backup)
 public/           style.css + client JS (app.js, admin-*.js)

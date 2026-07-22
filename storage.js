@@ -53,27 +53,33 @@ function digests(filePath) {
   });
 }
 
-async function uploadLocal(key, tmpPath, size) {
+async function uploadLocal(key, tmpPath, size, hex) {
   const skey = key.replace(/^\/+/, '');
   const dest = path.join(LOCAL_DIR, skey);
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   await pipeline(fs.createReadStream(tmpPath), fs.createWriteStream(dest));
-  return { driver: 'local', storagePath: skey, cdnUrl: `/files/${skey}`, checksum: null, size };
+  return { driver: 'local', storagePath: skey, cdnUrl: `/files/${skey}`, checksum: hex, size };
+}
+
+/** Public helper: SHA-256 of a temp file as { hex (uppercase), b64 }. */
+function hashFile(tmpPath) {
+  return digests(tmpPath);
 }
 
 /**
  * Stream a temp file into storage using the given driver.
- * Local skips config resolution and checksum hashing entirely — neither is
- * needed when the bytes never leave the box.
+ * Checksum is now computed for every driver (local included) — it powers the
+ * duplicate-upload guard and can be shown to users. Pass `precomputed` to reuse
+ * a digest already taken (e.g. by the dedup check) instead of hashing twice.
  * @returns {Promise<{driver, storagePath, cdnUrl, checksum, size}>}
  */
-async function uploadFile(key, tmpPath, mime, driver) {
+async function uploadFile(key, tmpPath, mime, driver, precomputed) {
   const size = (await fsp.stat(tmpPath)).size;
+  const { hex, b64 } = precomputed || (await digests(tmpPath));
 
-  if (driver === 'local') return uploadLocal(key, tmpPath, size);
+  if (driver === 'local') return uploadLocal(key, tmpPath, size, hex);
 
   const cfg = storageConfig.resolve();
-  const { hex, b64 } = await digests(tmpPath);
 
   if (driver === 'bunny') {
     if (!cfg.bunny.configured) throw new Error('Bunny storage not configured');
@@ -206,4 +212,4 @@ function isConfigured(driver) {
   return false;
 }
 
-module.exports = { token, uploadFile, remove, streamTo, publicUrl, isConfigured, LOCAL_DIR, TMP_DIR };
+module.exports = { token, hashFile, uploadFile, remove, streamTo, publicUrl, isConfigured, LOCAL_DIR, TMP_DIR };

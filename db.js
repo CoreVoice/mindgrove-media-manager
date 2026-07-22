@@ -82,10 +82,45 @@ CREATE TABLE IF NOT EXISTS redirects (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- User-creatable, reusable labels (e.g. "datasheet", "firmware").
+CREATE TABLE IF NOT EXISTS tags (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT    NOT NULL UNIQUE,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS link_tags (
+  link_id INTEGER NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+  tag_id  INTEGER NOT NULL REFERENCES tags(id)  ON DELETE CASCADE,
+  PRIMARY KEY (link_id, tag_id)
+);
+
+-- Approval queue. Every change a non-admin makes lands here as 'pending' until an
+-- admin approves (applied via the shared mutation logic) or rejects (discarded).
+-- kind: create | replace | slug | delete | tags
+CREATE TABLE IF NOT EXISTS change_requests (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind          TEXT    NOT NULL,
+  link_id       INTEGER REFERENCES links(id) ON DELETE CASCADE,
+  payload       TEXT    NOT NULL DEFAULT '{}',   -- JSON: action-specific fields
+  staged_path   TEXT,                            -- storage key of uploaded-but-unapproved bytes
+  staged_driver TEXT,
+  requested_by  INTEGER REFERENCES users(id),
+  requested_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  status        TEXT    NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  reviewed_by   INTEGER REFERENCES users(id),
+  reviewed_at   TEXT,
+  note          TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_redirects_link   ON redirects(link_id);
 CREATE INDEX IF NOT EXISTS idx_sections_page    ON sections(page_id);
 CREATE INDEX IF NOT EXISTS idx_variants_section ON variants(section_id);
 CREATE INDEX IF NOT EXISTS idx_links_variant    ON links(variant_id);
+CREATE INDEX IF NOT EXISTS idx_link_tags_tag    ON link_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_cr_status        ON change_requests(status);
+CREATE INDEX IF NOT EXISTS idx_cr_link          ON change_requests(link_id);
 `);
 
 module.exports = db;

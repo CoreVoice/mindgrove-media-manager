@@ -16,25 +16,26 @@ function fmtSize(n) {
   while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
   return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
 }
-function fillSelect(sel, items, placeholder) {
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    items.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
-}
 function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-// SQLite's datetime('now') is UTC with no timezone marker — convert explicitly to IST (+5:30).
 function fmtIST(sqliteUtc) {
   if (!sqliteUtc) return '';
   const d = new Date(sqliteUtc.replace(' ', 'T') + 'Z');
   if (isNaN(d)) return '';
-  return (
-    new Intl.DateTimeFormat('en-IN', {
-      timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: true,
-    }).format(d) + ' IST'
-  );
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  }).format(d) + ' IST';
 }
+function fillSelect(sel, items, placeholder) {
+  sel.innerHTML = `<option value="">${placeholder}</option>` +
+    items.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
+}
+
+// ---- view + checksum prefs ----
+let viewMode = localStorage.getItem('mg-view') === 'list' ? 'list' : 'cards';
+let showChecksum = localStorage.getItem('mg-checksum') === '1';
 
 const pageSel = document.getElementById('pageSel');
 const sectionSel = document.getElementById('sectionSel');
@@ -43,58 +44,124 @@ const slot = document.getElementById('slot');
 const cards = document.getElementById('cards');
 const emptyCards = document.getElementById('emptyCards');
 const taxoHint = document.getElementById('taxoHint');
+const tagOptions = document.getElementById('tagOptions');
+
+let allTags = [];
 
 async function init() {
   taxoHint.classList.remove('hidden');
+  applyViewMode();
+  document.getElementById('showChecksum').checked = showChecksum;
   fillSelect(pageSel, await api('/api/pages'), 'Select page…');
+  await refreshTags();
 }
 
+async function refreshTags() {
+  allTags = await api('/api/tags');
+  tagOptions.innerHTML = allTags.map((t) => `<option value="${escapeHtml(t.name)}"></option>`).join('');
+}
+
+// ---- cascade ----
 pageSel.addEventListener('change', async () => {
   resetFrom('section');
   if (!pageSel.value) return;
   fillSelect(sectionSel, await api(`/api/pages/${pageSel.value}/sections`), 'Select section…');
   sectionSel.disabled = false;
 });
-
 sectionSel.addEventListener('change', async () => {
   resetFrom('variant');
   if (!sectionSel.value) return;
   fillSelect(variantSel, await api(`/api/sections/${sectionSel.value}/variants`), 'Select variant…');
   variantSel.disabled = false;
 });
-
 variantSel.addEventListener('change', async () => {
   if (!variantSel.value) { slot.classList.add('hidden'); return; }
   slot.classList.remove('hidden');
   await loadFiles();
 });
-
 function resetFrom(level) {
-  if (level === 'section') {
-    fillSelect(sectionSel, [], 'Select section…'); sectionSel.disabled = true;
-  }
+  if (level === 'section') { fillSelect(sectionSel, [], 'Select section…'); sectionSel.disabled = true; }
   fillSelect(variantSel, [], 'Select variant…'); variantSel.disabled = true;
   slot.classList.add('hidden');
 }
 
+// ---- view toggle + checksum toggle ----
+function applyViewMode() {
+  cards.classList.toggle('list', viewMode === 'list');
+  document.querySelectorAll('#viewToggle button').forEach((b) => b.classList.toggle('active', b.dataset.view === viewMode));
+}
+document.getElementById('viewToggle').addEventListener('click', (e) => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  viewMode = btn.dataset.view; localStorage.setItem('mg-view', viewMode); applyViewMode();
+});
+document.getElementById('showChecksum').addEventListener('change', (e) => {
+  showChecksum = e.target.checked; localStorage.setItem('mg-checksum', showChecksum ? '1' : '0');
+  cards.classList.toggle('show-sum', showChecksum);
+});
+
 async function loadFiles() {
-  const files = await api(`/api/variants/${variantSel.value}/files`);
+  const { files, pendingCreates } = await api(`/api/variants/${variantSel.value}/files`);
   cards.innerHTML = '';
-  emptyCards.classList.toggle('hidden', files.length > 0);
+  cards.classList.toggle('show-sum', showChecksum);
+  const total = files.length + pendingCreates.length;
+  emptyCards.classList.toggle('hidden', total > 0);
+  for (const pc of pendingCreates) cards.appendChild(renderPendingCreate(pc));
   for (const f of files) cards.appendChild(renderCard(f));
+}
+
+// ---- tag chip picker (names only; backend resolves/creates) ----
+function chipPicker(container, initial = []) {
+  const chips = container.querySelector('.chips');
+  const input = container.querySelector('.tagInput');
+  const names = new Set(initial.map((t) => (typeof t === 'string' ? t : t.name)));
+  function render() {
+    chips.innerHTML = [...names].map((n) => `<span class="chip">${escapeHtml(n)}<button type="button" data-x="${escapeHtml(n)}">×</button></span>`).join('');
+    chips.querySelectorAll('button[data-x]').forEach((b) => (b.onclick = () => { names.delete(b.dataset.x); render(); }));
+  }
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const v = input.value.trim().replace(/,+$/, '');
+      if (v) { names.add(v); input.value = ''; render(); }
+    }
+  });
+  render();
+  return { names: () => [...names] };
+}
+
+const uploadTags = chipPicker(document.querySelector('[data-role="upload-tags"]'));
+
+function pendingNote(res) {
+  return res && res.pending ? 'Submitted for admin approval.' : null;
+}
+
+function renderPendingCreate(pc) {
+  const el = document.createElement('div');
+  el.className = 'filecard pending';
+  el.innerHTML = `
+    <div class="name">${escapeHtml(pc.label)} <span class="badge warn">Pending review</span></div>
+    <div class="meta"><span>${escapeHtml(pc.mime || 'file')}</span><span>·</span><span>${fmtSize(pc.size)}</span></div>
+    <div class="meta updated">Requested by ${escapeHtml(pc.requestedBy)} · ${fmtIST(pc.requestedAt)}</div>
+    <div class="muted small">Not live yet — an admin must approve this upload.</div>`;
+  return el;
 }
 
 function renderCard(f) {
   const el = document.createElement('div');
   el.className = 'filecard';
   const driverLabel = f.driver === 'bunny' ? 'Bunny CDN' : f.driver === 's3' ? 'S3' : 'Local';
+  const tagsHtml = f.tags.map((t) => `<span class="chip readonly">${escapeHtml(t.name)}</span>`).join('');
+  const pendingBadge = f.pending
+    ? `<span class="badge warn" title="A ${escapeHtml(f.pending.kind)} change is awaiting review">Change pending</span>` : '';
   el.innerHTML = `
-    <div class="name">${escapeHtml(f.label)}</div>
+    <div class="name">${escapeHtml(f.label)} ${pendingBadge}</div>
     <div class="meta">
       <span class="tag ${f.driver}">${driverLabel}</span>
       <span>${escapeHtml(f.mime || 'file')}</span><span>·</span><span>${fmtSize(f.size)}</span>
     </div>
     <div class="meta updated">Updated ${fmtIST(f.updatedAt)}</div>
+    <div class="cardtags">${tagsHtml || '<span class="muted small">no tags</span>'}</div>
+    <div class="checksum"><code title="SHA-256">${f.checksum ? escapeHtml(f.checksum) : '—'}</code>${f.checksum ? '<button class="btn small" data-act="copysum">Copy</button>' : ''}</div>
     <div class="linkline" data-role="display">
       <input type="text" readonly value="${escapeHtml(f.shortUrl)}" />
       <button class="btn small" data-act="copy">Copy</button>
@@ -104,9 +171,17 @@ function renderCard(f) {
       <button class="btn small primary" data-act="saveslug">Save</button>
       <button class="btn small" data-act="cancelslug">Cancel</button>
     </div>
+    <div class="tagpicker hidden" data-role="tag-editor">
+      <span class="muted small">Tags:</span><span class="chips"></span>
+      <input type="text" class="tagInput" list="tagOptions" placeholder="add tag + Enter" />
+      <button class="btn small primary" data-act="savetags">Save</button>
+      <button class="btn small" data-act="canceltags">Cancel</button>
+    </div>
     <div class="actions">
+      <a class="btn small" href="${escapeHtml(f.shortUrl)}" data-act="download">Download</a>
       <button class="btn small" data-act="replace">Replace file</button>
       <button class="btn small" data-act="slug">Edit link</button>
+      <button class="btn small" data-act="tags">Tags</button>
       <button class="btn small danger" data-act="remove">Remove</button>
     </div>
     <div class="msg"></div>`;
@@ -115,47 +190,37 @@ function renderCard(f) {
   const say = (t, ok = true) => { msg.textContent = t; msg.className = 'msg ' + (ok ? 'ok' : 'err'); };
   const display = el.querySelector('[data-role="display"]');
   const editor = el.querySelector('[data-role="editor"]');
+  const tagEditor = el.querySelector('[data-role="tag-editor"]');
   const slugEdit = el.querySelector('.slugEdit');
 
-  el.querySelector('[data-act="copy"]').onclick = () => {
-    navigator.clipboard.writeText(f.shortUrl).then(() => say('Copied!'));
-  };
+  const sumBtn = el.querySelector('[data-act="copysum"]');
+  if (sumBtn) sumBtn.onclick = () => navigator.clipboard.writeText(f.checksum).then(() => say('Checksum copied.'));
+
+  el.querySelector('[data-act="copy"]').onclick = () => navigator.clipboard.writeText(f.shortUrl).then(() => say('Link copied.'));
 
   el.querySelector('[data-act="replace"]').onclick = () => {
-    const inp = document.createElement('input');
-    inp.type = 'file';
+    const inp = document.createElement('input'); inp.type = 'file';
     inp.onchange = async () => {
       if (!inp.files[0]) return;
-      const fd = new FormData();
-      fd.append('file', inp.files[0]);
-      try {
-        say('Uploading…');
-        await api(`/api/links/${f.id}/replace`, { method: 'POST', body: fd });
-        await loadFiles();
+      const fd = new FormData(); fd.append('file', inp.files[0]);
+      try { say('Uploading…'); const r = await api(`/api/links/${f.id}/replace`, { method: 'POST', body: fd });
+        say(pendingNote(r) || 'File replaced.'); await loadFiles();
       } catch (e) { say(e.message, false); }
     };
     inp.click();
   };
 
-  // inline slug editor (no window.prompt — blocked/no-op in some browsers)
-  el.querySelector('[data-act="slug"]').onclick = () => {
-    display.classList.add('hidden'); editor.classList.remove('hidden');
-    slugEdit.value = f.slug; slugEdit.focus(); slugEdit.select();
-  };
-  el.querySelector('[data-act="cancelslug"]').onclick = () => {
-    editor.classList.add('hidden'); display.classList.remove('hidden');
-  };
+  // slug editor
+  el.querySelector('[data-act="slug"]').onclick = () => { display.classList.add('hidden'); editor.classList.remove('hidden'); slugEdit.value = f.slug; slugEdit.focus(); slugEdit.select(); };
+  el.querySelector('[data-act="cancelslug"]').onclick = () => { editor.classList.add('hidden'); display.classList.remove('hidden'); };
   el.querySelector('[data-act="saveslug"]').onclick = async () => {
     const next = slugEdit.value.trim();
     if (!next || next === f.slug) { editor.classList.add('hidden'); display.classList.remove('hidden'); return; }
     try {
-      const r = await api(`/api/links/${f.id}/slug`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: next }),
-      });
-      f.slug = r.slug; f.shortUrl = r.shortUrl;
-      el.querySelector('[data-role="display"] input').value = r.shortUrl;
+      const r = await api(`/api/links/${f.id}/slug`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: next }) });
       editor.classList.add('hidden'); display.classList.remove('hidden');
-      say('Short link updated. The old link still works — it forwards here.');
+      say(pendingNote(r) || 'Short link updated. Old link still forwards here.');
+      if (r.applied) await loadFiles();
     } catch (e) { say(e.message, false); }
   };
   slugEdit.addEventListener('keydown', (e) => {
@@ -163,28 +228,38 @@ function renderCard(f) {
     if (e.key === 'Escape') el.querySelector('[data-act="cancelslug"]').click();
   });
 
-  // two-step remove (no window.confirm — blocked/no-op in some browsers)
+  // tags editor
+  let picker = null;
+  el.querySelector('[data-act="tags"]').onclick = () => {
+    tagEditor.classList.remove('hidden');
+    picker = chipPicker(tagEditor, f.tags);
+  };
+  el.querySelector('[data-act="canceltags"]').onclick = () => { tagEditor.classList.add('hidden'); };
+  el.querySelector('[data-act="savetags"]').onclick = async () => {
+    try {
+      const r = await api(`/api/links/${f.id}/tags`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tagIds: [], newTags: picker.names() }) });
+      tagEditor.classList.add('hidden');
+      say(pendingNote(r) || 'Tags updated.');
+      await refreshTags();
+      if (r.applied) await loadFiles();
+    } catch (e) { say(e.message, false); }
+  };
+
+  // remove (two-click confirm)
   const removeBtn = el.querySelector('[data-act="remove"]');
   let armed = false, armTimer = null;
   removeBtn.onclick = async () => {
-    if (!armed) {
-      armed = true;
-      removeBtn.textContent = 'Click again to confirm';
-      armTimer = setTimeout(() => { armed = false; removeBtn.textContent = 'Remove'; }, 4000);
-      return;
-    }
-    clearTimeout(armTimer);
-    removeBtn.disabled = true;
-    try {
-      await api(`/api/links/${f.id}`, { method: 'DELETE' });
-      await loadFiles();
+    if (!armed) { armed = true; removeBtn.textContent = 'Click again to confirm'; armTimer = setTimeout(() => { armed = false; removeBtn.textContent = 'Remove'; }, 4000); return; }
+    clearTimeout(armTimer); removeBtn.disabled = true;
+    try { const r = await api(`/api/links/${f.id}`, { method: 'DELETE' });
+      if (r.applied) { await loadFiles(); } else { say('Deletion submitted for approval.'); removeBtn.disabled = false; armed = false; removeBtn.textContent = 'Remove'; }
     } catch (e) { say(e.message, false); removeBtn.disabled = false; armed = false; removeBtn.textContent = 'Remove'; }
   };
 
   return el;
 }
 
-// upload
+// ---- upload ----
 const uploadBtn = document.getElementById('uploadBtn');
 const fileInput = document.getElementById('fileInput');
 const slugInput = document.getElementById('slugInput');
@@ -196,32 +271,27 @@ uploadBtn.addEventListener('click', async () => {
   fd.append('file', fileInput.files[0]);
   fd.append('variant_id', variantSel.value);
   if (slugInput.value.trim()) fd.append('slug', slugInput.value.trim());
+  fd.append('newTags', JSON.stringify(uploadTags.names()));
   uploadBtn.disabled = true;
   uploadMsg.textContent = 'Uploading…'; uploadMsg.className = 'msg';
   try {
     const r = await api('/api/upload', { method: 'POST', body: fd });
-    uploadMsg.textContent = `Uploaded. Short link: ${r.shortUrl}`; uploadMsg.className = 'msg ok';
+    uploadMsg.textContent = r.pending ? 'Uploaded — submitted for admin approval.' : `Uploaded. Short link: ${location.origin}/f/${r.slug}`;
+    uploadMsg.className = 'msg ok';
     fileInput.value = ''; slugInput.value = '';
+    await refreshTags();
     await loadFiles();
   } catch (e) {
     uploadMsg.textContent = e.message; uploadMsg.className = 'msg err';
-  } finally {
-    uploadBtn.disabled = false;
-  }
+  } finally { uploadBtn.disabled = false; }
 });
 
-// drag & drop onto the upload zone
+// drag & drop
 const zone = document.getElementById('uploadZone');
 if (zone) {
-  ['dragenter', 'dragover'].forEach((ev) =>
-    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('drag'); })
-  );
-  ['dragleave', 'drop'].forEach((ev) =>
-    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('drag'); })
-  );
-  zone.addEventListener('drop', (e) => {
-    if (e.dataTransfer.files[0]) { fileInput.files = e.dataTransfer.files; }
-  });
+  ['dragenter', 'dragover'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('drag'); }));
+  zone.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) fileInput.files = e.dataTransfer.files; });
 }
 
 init().catch((e) => { uploadMsg && (uploadMsg.textContent = e.message); });

@@ -1,0 +1,21 @@
+<%- include('partials/header') %>
+<main class="container">
+  <div class="page-head">
+    <p class="eyebrow">Approvals</p>
+    <h1>Pending changes</h1>
+    <p class="lead">Every change a non-admin makes waits here until you approve or reject it.
+      Approving applies it exactly as if an admin had done it; rejecting discards it (and any
+      uploaded-but-unapproved bytes).</p>
+  </div>
+
+  <section class="card">
+    <table class="grid" id="approvalsTable">
+      <thead><tr><th>Type</th><th>Change</th><th>By</th><th>Requested</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="emptyState" class="muted hidden" style="padding:.5rem 0">Nothing waiting for review. 🎉</div>
+    <div id="msg" class="msg"></div>
+  </section>
+</main>
+<script src="/public/admin-approvals.js"></script>
+<%- include('partials/footer') %>

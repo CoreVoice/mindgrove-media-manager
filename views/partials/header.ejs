@@ -16,6 +16,7 @@
       <% const p = (typeof page !== 'undefined') ? page : ''; %>
       <a href="/" class="<%= p === 'dashboard' ? 'active' : '' %>">Dashboard</a>
       <% if (user && user.role === 'admin') { %>
+        <a href="/admin/approvals" class="<%= p === 'approvals' ? 'active' : '' %>">Approvals<% if (typeof pendingCount !== 'undefined' && pendingCount > 0) { %> <span class="badge"><%= pendingCount %></span><% } %></a>
         <a href="/admin/users" class="<%= p === 'users' ? 'active' : '' %>">Users</a>
         <a href="/admin/taxonomy" class="<%= p === 'taxonomy' ? 'active' : '' %>">Taxonomy</a>
         <a href="/admin/settings" class="<%= p === 'settings' ? 'active' : '' %>">Settings</a>
